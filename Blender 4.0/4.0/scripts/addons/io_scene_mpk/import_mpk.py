@@ -338,12 +338,21 @@ def BuildMesh(geom):
             col = bpy.data.collections.new("___zone___")
             bpy.context.scene.collection.children.link(col)
             col.objects.link(ob)
-    else:        
+    elif len(geom.mat[i].lightMapName) > 0 and geom.numchannels == 2:
         try:
             col = bpy.data.collections[geom.mat[i].lightMapName]
             col.objects.link(ob)
         except:
             col = bpy.data.collections.new(geom.mat[i].lightMapName)
+            bpy.context.scene.collection.children.link(col)
+            col.objects.link(ob)
+        ob.select_set(True)
+    else:
+        try:
+            col = bpy.data.collections["___noLightMap___"]
+            col.objects.link(ob)
+        except:
+            col = bpy.data.collections.new("___noLightMap___")
             bpy.context.scene.collection.children.link(col)
             col.objects.link(ob)
         ob.select_set(True)
