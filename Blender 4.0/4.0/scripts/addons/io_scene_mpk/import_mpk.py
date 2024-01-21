@@ -3,6 +3,7 @@ import os
 import bpy
 import struct
 import array
+import re
 from bpy_extras import image_utils
 from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
 from dataclasses import dataclass
@@ -258,8 +259,10 @@ def BuildMesh(geom):
         bmat = None
         blend = None
         alpha = None
-        mapto = None
+        mapto = 'DIFFUSE'
         addtex = True
+        transparents = ['atest','decal','glass','trans']
+        trans = re.search(r"(?=("+'|'.join(transparents)+r"))", geom.meshname, re.IGNORECASE)
         
         colorOffset = (geom.mat[i].colorOffset.u, geom.mat[i].colorOffset.v, 0)
         colorScale  = (1/geom.mat[i].colorTiling.u, 1/geom.mat[i].colorTiling.v, 1)
@@ -306,12 +309,12 @@ def BuildMesh(geom):
                 recursive=True,
                 )
                 bmat = bpy.data.materials.new(matname)
-                mtl_cache[matname] = bmat        
-            
+                mtl_cache[matname] = bmat
+        
         if addtex:
             wrapper = PrincipledBSDFWrapper(bmat, is_readonly=False, use_nodes=True)
                 
-            add_texture_to_material(color,blend,alpha,wrapper,
+            add_texture_to_material(color,blend,alpha,trans,wrapper,
             colorOffset,colorScale,blendOffset,blendScale,mapto,uv_map)
 
             bmat.use_backface_culling = True            
@@ -326,7 +329,8 @@ def BuildMesh(geom):
 
     ob = bpy.data.objects.new(geom.meshname, mesh)
 
-    if geom.numchannels < 2:
+    zone = ['antyp','barrier','death','ladderzone','monster','physdest','portal','volfog','volligh','zone']
+    if re.search(r"(?=("+'|'.join(zone)+r"))", geom.meshname, re.IGNORECASE):
         try:
             col = bpy.data.collections["___zone___"]
             col.objects.link(ob)
@@ -365,7 +369,7 @@ def read_float(file):
     temp_data = file.read(SZ_FLOAT)
     return struct.unpack('<f', temp_data)[0]
 
-def add_texture_to_material(color, blend, alpha, wrapper, 
+def add_texture_to_material(color, blend, alpha, trans, wrapper, 
 colorOffset, colorScale, blendOffset, blendScale, mapto, uv_map):
     shader = wrapper.node_principled_bsdf
     nodetree = wrapper.material.node_tree
@@ -411,6 +415,11 @@ colorOffset, colorScale, blendOffset, blendScale, mapto, uv_map):
         links.new(blendMap.outputs['Color'], mixer.inputs[2])
     elif mapto == 'DIFFUSE':
         img_wrap = wrapper.base_color_texture
+        if trans:
+            for node in nodes:
+                if node.type == 'TEX_IMAGE':
+                    links.new(node.outputs['Alpha'], shader.inputs['Alpha'])
+                    wrapper.material.blend_method = 'HASHED'
 
     img_wrap.image = color
     img_wrap.extension = 'REPEAT'
