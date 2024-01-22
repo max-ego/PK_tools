@@ -3,6 +3,7 @@ import os
 import bpy
 import struct
 import array
+import mathutils
 import re
 from bpy_extras import image_utils
 from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
@@ -63,6 +64,7 @@ class Material:
     alphaOffset: UV
     alphaTiling: UV
 
+tm = mathutils.Matrix.Scale(0.0254,4)
 
 def load(operator, context, filepath=""):
 
@@ -188,6 +190,7 @@ def CacheMesh(file, addr, geom):
     
 
 def BuildMesh(geom):
+    # GEOMETRY
     mesh = bpy.data.meshes.new(geom.meshname)
     mesh.vertices.add(geom.numVerts)
     mesh.polygons.add(geom.numFaces)
@@ -215,8 +218,9 @@ def BuildMesh(geom):
     mesh.polygons.foreach_set("loop_start", range(0, geom.numFaces * 3, 3))
     mesh.loops.foreach_set("vertex_index", _faces)
     mesh.loops.foreach_set("normal", _normals)
+    mesh.transform(tm)
 
-    # materials
+    # MATERIALS
     i = 0
     j = 0
     while i < geom.numFaces:
@@ -249,9 +253,6 @@ def BuildMesh(geom):
         uvl[pl.loop_start + 1].uv = (geom.verts[f.v1].u2, geom.verts[f.v1].v2)
         uvl[pl.loop_start + 2].uv = (geom.verts[f.v2].u2, geom.verts[f.v2].v2)
     mesh.uv_layers['colormap'].active = True
-    
-    mesh.validate(clean_customdata=False)
-    mesh.update()
 
     for i in range(geom.nummat):
         matname = "mtl_" + geom.mat[i].colorMapName
@@ -319,14 +320,22 @@ def BuildMesh(geom):
 
             bmat.use_backface_culling = True            
             mesh.materials.append(bmat)
+
+    if geom.numchannels < 2:
+        lm = mesh.uv_layers['lightmap']
+        mesh.uv_layers.remove(lm)
     
-    # finish up    
+    # FINISH UP
+    mesh.validate(clean_customdata=False)
+    mesh.update()
+
     clnors = array.array('f', [0.0] * (len(mesh.loops) * 3))
     mesh.loops.foreach_get("normal", clnors)
     mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
     mesh.normals_split_custom_set(tuple(zip(*(iter(clnors),) * 3)))
     mesh.use_auto_smooth = True
-
+    
+    # COLLECTIONS
     ob = bpy.data.objects.new(geom.meshname, mesh)
 
     zone = ['antyp','barrier','death','ladderzone','monster','physdest','portal','volfog','volligh','zone']
@@ -387,6 +396,10 @@ colorOffset, colorScale, blendOffset, blendScale, mapto, uv_map):
     links = nodetree.links
 
     if mapto == 'BLEND':
+        # color
+        img_wrap = wrapper.base_color_texture
+        img_wrap.scale = colorScale
+        img_wrap.translation = colorOffset
         # blend
         blendMap = nodes.new(type='ShaderNodeTexImage')
         blendMap.location = (-300, 300)
@@ -412,16 +425,14 @@ colorOffset, colorScale, blendOffset, blendScale, mapto, uv_map):
         uv_map_node.location = (-600, 600)
         uv_map_node.uv_map = uv_map
         links.new(uv_map_node.outputs[0], alphaMap.inputs[0])
+        # mix
         mixer = nodes.new(type='ShaderNodeMixRGB')
         mixer.label = "Mixer"
         wrapper._grid_to_location(1, 2, dst_node=mixer, ref_node=shader)
-        img_wrap = wrapper.base_color_texture
-        img_wrap.scale = colorScale
-        img_wrap.translation = colorOffset
         links.new(alphaMap.outputs['Color'], mixer.inputs[0])
-        links.new(mixer.outputs['Color'], shader.inputs['Base Color'])
         links.new(img_wrap.node_image.outputs['Color'], mixer.inputs[1])
         links.new(blendMap.outputs['Color'], mixer.inputs[2])
+        links.new(mixer.outputs['Color'], shader.inputs['Base Color'])
     elif mapto == 'DIFFUSE':
         img_wrap = wrapper.base_color_texture
         if trans:
