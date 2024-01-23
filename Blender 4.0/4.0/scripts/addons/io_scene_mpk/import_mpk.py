@@ -64,8 +64,6 @@ class Material:
     alphaOffset: UV
     alphaTiling: UV
 
-tm = mathutils.Matrix.Scale(0.0254,4)
-
 def load(operator, context, filepath=""):
 
     load_mpk(filepath, context)
@@ -78,6 +76,28 @@ def load_mpk(filepath, context):
 
     if bpy.ops.object.select_all.poll():
         bpy.ops.object.select_all(action='DESELECT')
+    
+    measure = 1.0 # default meters
+    unit_length = context.scene.unit_settings.length_unit
+    if unit_length == 'MILES':
+        measure = 1609.344
+    elif unit_length == 'KILOMETERS':
+        measure = 1000.0
+    elif unit_length == 'FEET':
+        measure = 0.3048
+    elif unit_length == 'INCHES':
+        measure = 0.0254
+    elif unit_length == 'CENTIMETERS':
+        measure = 0.01
+    elif unit_length == 'MILLIMETERS':
+        measure = 0.001
+    elif unit_length == 'THOU':
+        measure = 0.0000254
+    elif unit_length == 'MICROMETERS':
+        measure = 0.000001
+    
+    global tm
+    tm = mathutils.Matrix.Scale(measure,4)
 
     file = open(filepath, 'rb')
 
@@ -101,7 +121,9 @@ def read_mesh(file):
         addr.append(read_long(file))
     
     global mtl_cache
+    global image_cache
     mtl_cache = {}
+    image_cache = {}
     for i in range(numobj):
         geom = Mesh('',0,0,[],0,[],0,[])
         CacheMesh(file, addr[i]+4, geom)
@@ -254,14 +276,14 @@ def BuildMesh(geom):
         uvl[pl.loop_start + 2].uv = (geom.verts[f.v2].u2, geom.verts[f.v2].v2)
     mesh.uv_layers['colormap'].active = True
 
+    # textures
     for i in range(geom.nummat):
-        matname = "mtl_" + geom.mat[i].colorMapName
+        matname = "mtl_" + os.path.basename(geom.mat[i].colorMapName)
         
         bmat = None
         blend = None
         alpha = None
-        mapto = 'DIFFUSE'
-        addtex = True
+        
         transparents = ['atest','decal','glass','trans']
         trans = re.search(r"(?=("+'|'.join(transparents)+r"))", geom.meshname, re.IGNORECASE)
         
@@ -269,30 +291,16 @@ def BuildMesh(geom):
         colorScale  = (1/geom.mat[i].colorTiling.u, 1/geom.mat[i].colorTiling.v, 1)
         blendOffset = (geom.mat[i].blendOffset.u, geom.mat[i].blendOffset.v, 0)
         blendScale  = (1/geom.mat[i].blendTiling.u, 1/geom.mat[i].blendTiling.v, 1)
+        mapto = 'DIFFUSE'
         uv_map = mesh.uv_layers['lightmap'].name
-        if len(geom.mat[i].blendMapName) > 0 and geom.numchannels == 2:
+        
+        addtex = True
+        if len(geom.mat[i].blendMapName) > 0 and len(geom.mat[i].alphaMapName) > 0 and geom.numchannels == 2:
             mapto = 'BLEND'
-        
-            color = image_utils.load_image(
-            geom.mat[i].colorMapName + ".dds",
-            dirname=dirname,
-            place_holder=True,
-            recursive=True,
-            )
             
-            blend = image_utils.load_image(
-            geom.mat[i].blendMapName + ".dds",
-            dirname=dirname,
-            place_holder=True,
-            recursive=True,
-            )
-        
-            alpha = image_utils.load_image(
-            geom.mat[i].alphaMapName + ".dds",
-            dirname=dirname,
-            place_holder=True,
-            recursive=True,
-            )
+            color = read_texture_image(geom.mat[i].colorMapName)
+            blend = read_texture_image(geom.mat[i].blendMapName)
+            alpha = read_texture_image(geom.mat[i].alphaMapName)
             
             bmat = bpy.data.materials.new(matname)
         else:
@@ -302,13 +310,8 @@ def BuildMesh(geom):
             if mtl is not None:
                 mesh.materials.append(mtl) # use existing
                 addtex = False
-            else:            
-                color = image_utils.load_image(
-                geom.mat[i].colorMapName + ".dds",
-                dirname=dirname,
-                place_holder=True,
-                recursive=True,
-                )
+            else:
+                color = read_texture_image(geom.mat[i].colorMapName)
                 bmat = bpy.data.materials.new(matname)
                 mtl_cache[matname] = bmat
         
@@ -387,6 +390,22 @@ def read_float(file):
     temp_data = file.read(SZ_FLOAT)
     return struct.unpack('<f', temp_data)[0]
 
+def read_texture_image(filepath):
+    basename = os.path.basename(filepath)
+    if not len(basename):
+        basename = 'notex'
+    image = image_cache.get(basename)
+    if image is not None:
+        return image
+    image = image_utils.load_image(
+    basename + '.dds',
+    dirname=dirname,
+    place_holder=True,
+    recursive=True,
+    )
+    image_cache[basename] = image
+    return image
+
 def add_texture_to_material(color, blend, alpha, trans, wrapper, 
 colorOffset, colorScale, blendOffset, blendScale, mapto, uv_map):
     shader = wrapper.node_principled_bsdf
@@ -412,9 +431,9 @@ colorOffset, colorScale, blendOffset, blendScale, mapto, uv_map):
         mapping.inputs['Location'].default_value[1] = blendOffset[1]
         mapping.inputs['Scale'].default_value[0] = blendScale[0]
         mapping.inputs['Scale'].default_value[1] = blendScale[1]
-        uv_node = nodes.new('ShaderNodeTexCoord')
-        uv_node.location = (-1200, 0)
-        links.new(uv_node.outputs['UV'], mapping.inputs['Vector'])
+        for node in nodes:
+            if node.type == 'TEX_COORD':
+                links.new(node.outputs['UV'], mapping.inputs['Vector'])
         links.new(mapping.outputs['Vector'], blendMap.inputs['Vector'])
         # mask
         alphaMap = nodes.new(type='ShaderNodeTexImage')
