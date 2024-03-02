@@ -31,11 +31,12 @@ C:\Program Files\Blender Foundation\Blender 4.0\4.0\scripts\addons\io_scene_mpk\
 
 Once the addon has been installed, you will be able to import Painkiller MPK geometry.
 
-1. Copy all the map textures to the folder where the MPK file is located.
-2. In Blender, delete the default scene: right click on `Collection` > `Delete Hierarchy`.
-3. Import Painkiller MPK geometry file via `File` > `Import` > `Painkiller World Mesh`.
-4. Click `Shading` in Blender. Now you will be able to see a map with textures
-5. If the map is too big to observe, you need to increase the `View End` distance in the 3D View area's `Properties` `N` menu > `View` tab. Consult the official Blender documentation.
+1. Extract a PKM or a PAK archive with the map geometry and textures.
+2. Create a new folder and copy the MPK geometry file and all the map textures to that folder.
+3. In Blender, delete the default scene: right-click on `Collection` > `Delete Hierarchy`.
+4. Import Painkiller MPK geometry file via `File` > `Import` > `Painkiller World Mesh`.
+5. Click `Shading` in Blender. Now you will be able to see a map with textures
+6. If the map is too big to observe, you need to increase the `View End` distance in the 3D View area's `Properties` `N` menu > `View` tab. Consult the official Blender documentation.
 
 ## Uninstall via GUI
 
