@@ -421,7 +421,7 @@ def read_texture_image(filepath):
     if image is not None:
         return image
     image = image_utils.load_image(
-        basename + '.bmp',
+        basename + '.dds',
         dirname=dirname,
         place_holder=False,
         recursive=True,
@@ -435,10 +435,18 @@ def read_texture_image(filepath):
         )
     if image is None:
         image = image_utils.load_image(
+        basename + '.bmp',
+        dirname=dirname,
+        place_holder=False,
+        recursive=True,
+        )
+    # set the 'dds' placeholder if no textures were found
+    if image is None:
+        image = image_utils.load_image(
         basename + '.dds',
         dirname=dirname,
         place_holder=True,
-        recursive=True,
+        recursive=False,
         )
     image_cache[basename] = image
     return image
