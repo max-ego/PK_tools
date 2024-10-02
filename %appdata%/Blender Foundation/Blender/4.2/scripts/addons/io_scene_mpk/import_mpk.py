@@ -421,11 +421,25 @@ def read_texture_image(filepath):
     if image is not None:
         return image
     image = image_utils.load_image(
+        basename + '.bmp',
+        dirname=dirname,
+        place_holder=False,
+        recursive=True,
+    )
+    if image is None:
+        image = image_utils.load_image(
+        basename + '.tga',
+        dirname=dirname,
+        place_holder=False,
+        recursive=True,
+        )
+    if image is None:
+        image = image_utils.load_image(
         basename + '.dds',
         dirname=dirname,
         place_holder=True,
         recursive=True,
-    )
+        )
     image_cache[basename] = image
     return image
 
