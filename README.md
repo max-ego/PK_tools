@@ -6,6 +6,6 @@
 See <a target="_blank" rel="noopener noreferrer" title="Installing Legacy Add-ons" href="https://docs.blender.org/manual/en/4.2/editors/preferences/addons.html#prefs-extensions-install-legacy-addon">**Installing Legacy Add-ons — Blender Manual**</a>.
 
 ------------
-![C5L3_Monastery](misc/5x03_Monastery.png "C5L3_Monastery")
+![1x02_Atrium](misc/1x02_Atrium.png "1x02_Atrium")
 
 ------------

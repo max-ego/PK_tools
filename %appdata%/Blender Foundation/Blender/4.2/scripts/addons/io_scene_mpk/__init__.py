@@ -9,8 +9,8 @@ import bpy
 bl_info = {
     "name": "Painkiller MPK format",
     "author": "dilettante",
-    "version": (1, 0, 0),
-    "blender": (4, 0, 0),
+    "version": (2, 0, 0),
+    "blender": (4, 2, 2),
     "location": "File > Import-Export",
     "description": "Painkiller WorldMesh Import",
     "doc_url": "https://github.com/max-ego/PK_tools/",
