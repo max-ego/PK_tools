@@ -67,14 +67,14 @@ class Material:
     alphaTiling: UV
 
 
-def load(operator, context, filepath=""):
+def load(operator, context, filepath="", use_lightmaps=True):
 
-    load_mpk(filepath, context)
+    load_mpk(filepath, context, use_lightmaps)
 
     return {'FINISHED'}
 
 
-def load_mpk(filepath, context):
+def load_mpk(filepath, context, use_lightmaps):
 
     print("importing MPK: %r..." % (filepath), end="")
 
@@ -102,6 +102,9 @@ def load_mpk(filepath, context):
 
     global tm
     tm = mathutils.Matrix.Scale(measure, 4)
+
+    global bLightmaps
+    bLightmaps = use_lightmaps
 
     file = open(filepath, 'rb')
 
@@ -135,11 +138,11 @@ def read_mesh(file):
         CacheMesh(file, addr[i] + 4, geom)
         BuildMesh(geom)
 
-    try:
-        col = bpy.data.collections['___zone___']
-        col.hide_viewport = True
-    except:
-        pass
+#    try:
+#        col = bpy.data.collections['___zone___']
+#        col.hide_viewport = True
+#    except:
+#        pass
 
 
 def CacheMesh(file, addr, geom):
@@ -528,7 +531,7 @@ def add_texture_to_material(
                     links.new(node.outputs['Alpha'], shader.inputs['Alpha'])
                     wrapper.material.blend_method = 'HASHED'
 
-    if light is not None:
+    if bLightmaps and light is not None:
         lightMap = nodes.new(type='ShaderNodeTexImage')
         lightMap.image = light
         lightMap.extension = 'REPEAT'

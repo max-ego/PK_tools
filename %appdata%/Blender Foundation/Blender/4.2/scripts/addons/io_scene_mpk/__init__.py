@@ -2,6 +2,7 @@ from bpy_extras.io_utils import (
     ImportHelper,
 )
 from bpy.props import (
+    BoolProperty,
     StringProperty,
 )
 
@@ -31,6 +32,11 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
     filename_ext = ".mpk"
     filter_glob: StringProperty(default="*.mpk", options={'HIDDEN'})
 
+    use_lightmaps : BoolProperty(
+            name = "Enable lightmaps",
+            description = "Adds lightmaps to materials",
+            default = True )
+
     def execute(self, context):
         from . import import_mpk
 
@@ -39,7 +45,7 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
         return import_mpk.load(self, context, **keywords)
 
     def draw(self, context):
-        pass
+        self.layout.box().prop( self, 'use_lightmaps' )
 
 # Add to a menu
 def menu_func_import(self, context):
