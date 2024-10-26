@@ -370,12 +370,12 @@ def BuildMesh(geom):
             col = bpy.data.collections.new('___zone___')
             bpy.context.scene.collection.children.link(col)
             col.objects.link(ob)
-    elif len(geom.mat[i].lightMapName) > 0 and geom.numchannels == 2:
+    elif len(geom.mat[0].lightMapName) > 0 and geom.numchannels == 2:
         try:
-            col = bpy.data.collections[geom.mat[i].lightMapName]
+            col = bpy.data.collections[geom.mat[0].lightMapName]
             col.objects.link(ob)
         except:
-            col = bpy.data.collections.new(geom.mat[i].lightMapName)
+            col = bpy.data.collections.new(geom.mat[0].lightMapName)
             bpy.context.scene.collection.children.link(col)
             col.objects.link(ob)
         ob.select_set(True)
