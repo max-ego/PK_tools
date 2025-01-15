@@ -67,14 +67,14 @@ class Material:
     alphaTiling: UV
 
 
-def load(operator, context, filepath="", use_lightmaps=True):
+def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=False):
 
-    load_mpk(filepath, context, use_lightmaps)
+    load_mpk(filepath, context, use_lightmaps, use_blendmaps)
 
     return {'FINISHED'}
 
 
-def load_mpk(filepath, context, use_lightmaps):
+def load_mpk(filepath, context, use_lightmaps, use_blendmaps):
 
     print("importing MPK: %r..." % (filepath), end="")
 
@@ -105,6 +105,9 @@ def load_mpk(filepath, context, use_lightmaps):
 
     global bLightmaps
     bLightmaps = use_lightmaps
+
+    global bBlendmaps
+    bBlendmaps = use_blendmaps
 
     file = open(filepath, 'rb')
 
@@ -297,7 +300,8 @@ def BuildMesh(geom):
         mapto = 'DIFFUSE'
 
         if (
-            len(geom.mat[i].blendMapName) > 0
+            bBlendmaps
+            and len(geom.mat[i].blendMapName) > 0
             and len(geom.mat[i].alphaMapName) > 0
             and geom.numchannels == 2
         ):
@@ -352,11 +356,7 @@ def BuildMesh(geom):
     zone = [
         'antyp',
         'barrier',
-        'death',
-        'ice',
-        'ladderzone',
         'monster',
-        'physdest',
         'portal',
         'volfog',
         'vollight',

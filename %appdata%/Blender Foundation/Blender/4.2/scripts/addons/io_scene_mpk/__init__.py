@@ -37,6 +37,11 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
             description = "Adds lightmaps to materials",
             default = True )
 
+    use_blendmaps : BoolProperty(
+            name = "Enable blendmaps",
+            description = "Adds blendmaps to materials",
+            default = True )
+
     def execute(self, context):
         from . import import_mpk
 
@@ -45,7 +50,9 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
         return import_mpk.load(self, context, **keywords)
 
     def draw(self, context):
-        self.layout.box().prop( self, 'use_lightmaps' )
+        box = self.layout.box()
+        box.prop( self, 'use_lightmaps' )
+        box.prop( self, 'use_blendmaps' )
 
 # Add to a menu
 def menu_func_import(self, context):
