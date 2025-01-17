@@ -67,7 +67,7 @@ class Material:
     alphaTiling: UV
 
 
-def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=True, remove_doubles=False):
+def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=True, remove_doubles=True):
 
     load_mpk(filepath, context, use_lightmaps, use_blendmaps, remove_doubles)
 
@@ -109,6 +109,9 @@ def load_mpk(filepath, context, use_lightmaps, use_blendmaps, remove_doubles):
     global bBlendmaps
     bBlendmaps = use_blendmaps
 
+    global bRemoveDoubles
+    bRemoveDoubles = remove_doubles
+
     file = open(filepath, 'rb')
 
     try:
@@ -117,18 +120,6 @@ def load_mpk(filepath, context, use_lightmaps, use_blendmaps, remove_doubles):
         MessageBox('something went wrong!', title='oops', icon='ERROR')
 
     file.close()
-    
-    if remove_doubles:
-        bpy.ops.object.select_all(action='SELECT')        
-        for obj in bpy.context.view_layer.objects:
-            if obj.type == 'MESH':
-                bpy.context.view_layer.objects.active = obj                
-                bpy.ops.object.editmode_toggle()
-                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
-                bpy.ops.mesh.remove_doubles(threshold = 0.0001, use_sharp_edge_from_normals=True)
-                bpy.ops.object.editmode_toggle()
-                break
-        bpy.ops.object.select_all(action='DESELECT')
 
 
 def read_mesh(file):
@@ -152,6 +143,19 @@ def read_mesh(file):
         geom = Mesh('', 0, 0, [], 0, [], 0, [])
         CacheMesh(file, addr[i] + 4, geom)
         BuildMesh(geom)
+    
+    if bRemoveDoubles:
+        if bpy.context.view_layer.objects.active is not None: bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='SELECT')
+        for obj in bpy.context.view_layer.objects:
+            if obj.type == 'MESH':
+                bpy.context.view_layer.objects.active = obj
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+                bpy.ops.mesh.remove_doubles(threshold = 0.0001, use_sharp_edge_from_normals=True)
+                bpy.ops.object.mode_set(mode='OBJECT')
+                break
+        bpy.ops.object.select_all(action='DESELECT')
 
 #    try:
 #        col = bpy.data.collections['___zone___']

@@ -45,7 +45,7 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
     remove_doubles : BoolProperty(
             name = "Merge vertices",
             description = "Removes double vertices",
-            default = False )
+            default = True )
 
     def execute(self, context):
         from . import import_mpk
