@@ -67,14 +67,14 @@ class Material:
     alphaTiling: UV
 
 
-def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=False):
+def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=True, remove_doubles=False):
 
-    load_mpk(filepath, context, use_lightmaps, use_blendmaps)
+    load_mpk(filepath, context, use_lightmaps, use_blendmaps, remove_doubles)
 
     return {'FINISHED'}
 
 
-def load_mpk(filepath, context, use_lightmaps, use_blendmaps):
+def load_mpk(filepath, context, use_lightmaps, use_blendmaps, remove_doubles):
 
     print("importing MPK: %r..." % (filepath), end="")
 
@@ -117,6 +117,18 @@ def load_mpk(filepath, context, use_lightmaps, use_blendmaps):
         MessageBox('something went wrong!', title='oops', icon='ERROR')
 
     file.close()
+    
+    if remove_doubles:
+        bpy.ops.object.select_all(action='SELECT')        
+        for obj in bpy.context.view_layer.objects:
+            if obj.type == 'MESH':
+                bpy.context.view_layer.objects.active = obj                
+                bpy.ops.object.editmode_toggle()
+                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+                bpy.ops.mesh.remove_doubles(threshold = 0.0001, use_sharp_edge_from_normals=True)
+                bpy.ops.object.editmode_toggle()
+                break
+        bpy.ops.object.select_all(action='DESELECT')
 
 
 def read_mesh(file):
@@ -357,6 +369,7 @@ def BuildMesh(geom):
         'antyp',
         'barrier',
         'monster',
+        'physdest',
         'portal',
         'volfog',
         'vollight',
@@ -378,7 +391,7 @@ def BuildMesh(geom):
             col = bpy.data.collections.new(geom.mat[0].lightMapName)
             bpy.context.scene.collection.children.link(col)
             col.objects.link(ob)
-        ob.select_set(True)
+#        ob.select_set(True)
     else:
         try:
             col = bpy.data.collections['___noLightMap___']
@@ -387,7 +400,7 @@ def BuildMesh(geom):
             col = bpy.data.collections.new('___noLightMap___')
             bpy.context.scene.collection.children.link(col)
             col.objects.link(ob)
-        ob.select_set(True)
+#        ob.select_set(True)
 
 
 SZ_FLOAT = struct.calcsize('f')

@@ -42,6 +42,11 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
             description = "Adds blendmaps to materials",
             default = True )
 
+    remove_doubles : BoolProperty(
+            name = "Merge vertices",
+            description = "Removes double vertices",
+            default = False )
+
     def execute(self, context):
         from . import import_mpk
 
@@ -53,6 +58,7 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
         box = self.layout.box()
         box.prop( self, 'use_lightmaps' )
         box.prop( self, 'use_blendmaps' )
+        box.prop( self, 'remove_doubles' )
 
 # Add to a menu
 def menu_func_import(self, context):
