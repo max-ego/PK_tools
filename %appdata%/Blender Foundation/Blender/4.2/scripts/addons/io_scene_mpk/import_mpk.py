@@ -67,7 +67,7 @@ class Material:
     alphaTiling: UV
 
 
-def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=True, remove_doubles=True):
+def load(operator, context, filepath="", use_lightmaps=True, use_blendmaps=True, remove_doubles=False):
 
     load_mpk(filepath, context, use_lightmaps, use_blendmaps, remove_doubles)
 
