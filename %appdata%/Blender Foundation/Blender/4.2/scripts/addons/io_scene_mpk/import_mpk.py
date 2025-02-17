@@ -415,7 +415,7 @@ SZ_U_SHORT = struct.calcsize('H')
 def readString(file):
     strlen = read_long(file)
     outstring = file.read(strlen)
-    return outstring[:-1].decode('utf-8')
+    return outstring[:-1].decode('iso-8859-1')
 
 
 def read_short(file):
