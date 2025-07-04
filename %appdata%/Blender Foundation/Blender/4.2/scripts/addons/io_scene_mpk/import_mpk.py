@@ -243,7 +243,7 @@ def CacheMeshDAT(file):
 
     numobj = read_long(file)
     geometry = []
-    for i in range(numobj):    
+    for i in range(numobj):
         geometry.append(Mesh('', 0, 0, [], 0, [], 0, [], 0x02, 0, 0, 0))
         temp = read_long(file) # 00 00 00 00
         geometry[i].type = read_long(file)
@@ -325,7 +325,7 @@ def CacheMeshDAT(file):
 
         # PORTAL
         if geometry[i].type == 0x08:
-            dummyMat(geometry[i])            
+            dummyMat(geometry[i])
             geometry[i].numchannels = 1
 
             geometry[i].numFaces = 2
@@ -389,10 +389,10 @@ def CacheMeshDAT(file):
                         offset = geometry[i].mat[k].offset
                         length = geometry[i].mat[k].size + 2
                     except: break
-                    
+
                 vl[j] = read_short(file)
                 if (vl[j - 2] == vl[j - 1] or vl[j - 1] == vl[j - 0] or vl[j - 2] == vl[j - 0]) or j < offset + 2 or j > length: continue
-                
+
                 face = Face(0, 0, 0)
                 if (j - offset) % 2 == 0:
                     face.v0 = vl[j - 0]
