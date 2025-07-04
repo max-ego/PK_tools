@@ -273,7 +273,7 @@ def CacheMeshDAT(file):
 
         # ANTYP : is not used in any of the original files
         if geometry[i].type == 0x10:
-            dummyMat(geometry[i])            
+            dummyMat(geometry[i])
             geometry[i].numchannels = 1
             
             geometry[i].numVerts = read_long(file)
@@ -295,44 +295,43 @@ def CacheMeshDAT(file):
 
         # ZONE
         if geometry[i].type == 0x04:
-            dummyMat(geometry[i])            
+            dummyMat(geometry[i])
             geometry[i].numchannels = 1
-            
+
             geometry[i].numVerts = 8
-            geometry[i].verts.append(Vertex(bbox[0].x, bbox[0].y, bbox[0].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[1].x, bbox[0].y, bbox[0].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[0].x, bbox[1].y, bbox[0].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[1].x, bbox[1].y, bbox[0].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[0].x, bbox[0].y, bbox[1].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[1].x, bbox[0].y, bbox[1].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[0].x, bbox[1].y, bbox[1].z, 0,0,0,0,0,0,0))
-            geometry[i].verts.append(Vertex(bbox[1].x, bbox[1].y, bbox[1].z, 0,0,0,0,0,0,0))
-            
+
+            for ii in range(geometry[i].numVerts):
+                geometry[i].verts.append(Vertex(
+                bbox[int(ii>>0&1)].x, bbox[int(ii>>1&1)].y, bbox[int(ii>>2&1)].z,
+                0,0,0,0,0,0,0))
+
             geometry[i].numFaces = 12
-            geometry[i].faces.append(Face(0, 3, 2))
-            geometry[i].faces.append(Face(3, 0, 1))
-            geometry[i].faces.append(Face(4, 7, 5))
-            geometry[i].faces.append(Face(7, 4, 6))
-            geometry[i].faces.append(Face(0, 5, 1))
-            geometry[i].faces.append(Face(5, 0, 4))
-            geometry[i].faces.append(Face(1, 7, 3))
-            geometry[i].faces.append(Face(7, 1, 5))
-            geometry[i].faces.append(Face(3, 6, 2))
-            geometry[i].faces.append(Face(6, 3, 7))
-            geometry[i].faces.append(Face(2, 4, 0))
-            geometry[i].faces.append(Face(4, 2, 6))
-            
+
+            geometry[i].faces.append(Face(3,0,1))
+            geometry[i].faces.append(Face(0,3,2))
+            geometry[i].faces.append(Face(7,2,3))
+            geometry[i].faces.append(Face(2,7,6))
+            geometry[i].faces.append(Face(5,6,7))
+            geometry[i].faces.append(Face(6,5,4))
+            geometry[i].faces.append(Face(1,4,5))
+            geometry[i].faces.append(Face(4,1,0))
+
+            geometry[i].faces.append(Face(6,0,2))
+            geometry[i].faces.append(Face(0,6,4))
+            geometry[i].faces.append(Face(5,3,1))
+            geometry[i].faces.append(Face(3,5,7))
+
             continue
 
         # PORTAL
         if geometry[i].type == 0x08:
             dummyMat(geometry[i])            
             geometry[i].numchannels = 1
-            
+
             geometry[i].numFaces = 2
             geometry[i].faces.append(Face(0, 2, 1))
             geometry[i].faces.append(Face(0, 3, 2))
-            
+
             geometry[i].numVerts = read_long(file)
             for ii in range(geometry[i].numVerts):
                 pt = pkspc @ mathutils.Vector((read_float(file),read_float(file),read_float(file)))
@@ -342,7 +341,7 @@ def CacheMeshDAT(file):
 
         # matrix
         file.seek(64, io.SEEK_CUR)
-        
+
         # 00 00 00 00 - ?
         file.seek(4, io.SEEK_CUR)
 
@@ -406,7 +405,7 @@ def CacheMeshDAT(file):
                 faces.append(face)
             geometry[i].numFaces = len(faces)
             geometry[i].faces = faces
-        
+
         # coords
         geometry[i].numVerts = read_long(file)
         for ii in range(geometry[i].numVerts):
@@ -446,7 +445,7 @@ def CacheMeshDAT(file):
         temp = read_long(file)
         for ii in range(temp):
             file.read(8*SZ_FLOAT)
-    
+
     return geometry
 
 
@@ -666,12 +665,12 @@ def BuildMesh(geom):
     mesh.update()
 
     mesh.polygons.foreach_set('use_smooth', [True] * len(mesh.polygons))
-    if not re.search(r'(?=(' + '|'.join(zone) + r'))', geom.meshname, re.IGNORECASE):
+    if not re.search(r'(?=(' + '|'.join(zone) + r'))', geom.meshname, re.IGNORECASE) and geom.type == 0x02:
         mesh.normals_split_custom_set_from_vertices(_normals)
 
     # COLLECTIONS
     ob = bpy.data.objects.new(geom.meshname, mesh)
-    if re.search(r'(?=(' + '|'.join(zone) + r'))', geom.meshname, re.IGNORECASE):
+    if re.search(r'(?=(' + '|'.join(zone) + r'))', geom.meshname, re.IGNORECASE) or geom.type != 0x02:
         try:
             col = bpy.data.collections['___zone___']
             col.objects.link(ob)
