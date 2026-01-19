@@ -11,7 +11,7 @@ import bpy_extras
 from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
 
 
-def load(operator, context, filepath='', use_default=True, use_optimize=False, use_all=True, use_selection=False, use_visible=False, use_sort=False, global_matrix=None):
+def load(operator, context, filepath='', use_default=True, use_optimize=False, use_all=True, use_selection=False, use_visible=False, use_sort=False, scale_factor=1.0, global_matrix=None):
 
     global info
 
@@ -23,6 +23,7 @@ def load(operator, context, filepath='', use_default=True, use_optimize=False, u
     global bSelection; bSelection = use_selection
     global bVisible;   bVisible   = use_visible
     global bSort;      bSort      = use_sort
+    global scale;      scale      = scale_factor
 
     save_mpk(filepath, context, global_matrix)
 
@@ -55,6 +56,17 @@ def save_mpk(filepath, context, global_matrix):
 
     context.window.cursor_set('DEFAULT')
     print('MPK export time: %.2f' % (time.time() - duration))
+
+
+zone = [
+    'antyp',
+    'barrier',
+    'monster',
+    'portal',
+    'volfog',
+    'vollight',
+    'zone',
+]
 
 
 SZ_SHORT = 2
@@ -154,7 +166,7 @@ def _map_n_pack( verts ):
     return output
 
 
-def ConvertToMPKFaces( mesh ):
+def ConvertToMPKFaces( mesh, bRound ):
     match mesh.normals_domain:
         case 'POINT':
             normal_source = mesh.vertex_normals
@@ -184,6 +196,7 @@ def ConvertToMPKFaces( mesh ):
             vert = {}
             # coords
             x,y,z = mesh.vertices[v].co
+            if bRound: x = round(x,4); y = round(y,4); z = round(z,4)
             # UVs
             uv1 = uv2 = [0.0,1.0]
             if uvl_2 is not None:
@@ -268,8 +281,7 @@ def doexp(file, context, global_matrix):
     elif unit_length == 'MICROMETERS':
         unit_measure = 1000000
 
-    scale_factor = 1.0
-    mtx_scale = mathutils.Matrix.Scale((scale_factor * unit_measure),4)
+    mtx_scale = mathutils.Matrix.Scale((scale * unit_measure),4)
 
     if global_matrix is None:
         global_matrix = mathutils.Matrix()
@@ -284,6 +296,12 @@ def doexp(file, context, global_matrix):
         objects = [ob for ob in scene.objects if ob.type in object_filter and ob.visible_get(view_layer=layer)]
     elif bAll:
         objects = [ob for ob in scene.objects if ob.type in object_filter]
+
+    active_object = context.view_layer.objects.active
+    org_mode = None
+    if active_object and active_object.mode != 'OBJECT' and bpy.ops.object.mode_set.poll():
+        org_mode = active_object.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
 
     for ob in objects:
         # Get derived objects
@@ -308,12 +326,20 @@ def doexp(file, context, global_matrix):
                 data.transform(mtx_scale)
                 mesh_objects.append((ob_derived, data, matrix))
 
+    if active_object and org_mode:
+        context.view_layer.objects.active = active_object
+        if bpy.ops.object.mode_set.poll():
+            bpy.ops.object.mode_set(mode=org_mode)
+
     offset = 0
     meshoffset = []; total = str(len(mesh_objects))
     for ob, mesh, matrix in mesh_objects:
         triangulate_object( mesh )
 
-        verts, faces = ConvertToMPKFaces( mesh )
+        bRound = re.search(r'(?=(' + '|'.join(zone) + r'))', ob.name, re.IGNORECASE)
+        verts, faces = ConvertToMPKFaces( mesh, bRound )
+
+        if len(verts) == 0 or len(faces) == 0: continue
 
         if len(verts)>0xffff:
             info('\'%s\' is rejected : too many vertices (> 64K)' % ob.name, icon='WARNING')

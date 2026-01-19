@@ -10,6 +10,7 @@ from bpy.props import (
     BoolProperty,
     StringProperty,
     IntProperty,
+    FloatProperty,
 )
 
 
@@ -159,6 +160,14 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
             description="Sort faces by materials",
             default = False )
 
+    scale_factor: FloatProperty(
+        name="Scale Factor",
+        description="Master scale factor for all objects",
+        min=0.0, max=100000.0,
+        soft_min=0.0, soft_max=100000.0,
+        default=1.0,
+    )
+
     def execute(self, context):
         from . import export_mpk
 
@@ -184,9 +193,12 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
         box2 = self.layout.box()
         box2.prop( self, 'use_all' )
         box2.prop( self, 'use_selection' )
-        box2.prop( self, 'use_visible' )        
+        box2.prop( self, 'use_visible' )
         box3 = self.layout.box()
         box3.prop( self, 'use_sort' )
+        self.layout.use_property_split = True
+        self.layout.use_property_decorate = False
+        self.layout.prop( self, 'scale_factor' )
 
 
 # Add to a menu
