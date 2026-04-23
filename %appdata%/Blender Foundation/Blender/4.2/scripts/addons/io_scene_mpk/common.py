@@ -306,7 +306,6 @@ def getGeometry(file, context, global_matrix, params):
 
     output = SimpleNamespace(geom = [], bIsItem = True)
     limit = (0xffff,0xffffffff)[filetype=='DAT']
-    # bIsItem = True
     for ob, mesh, matrix in mesh_objects:
         triangulate_object( mesh, bSort )
 
@@ -373,10 +372,10 @@ def getGeometry(file, context, global_matrix, params):
 
         match filetype:
             case 'DAT':
-                type = 0x02
-                if re.search(r'zone'  , ob.name, re.IGNORECASE): type = 0x04
-                if re.search(r'portal', ob.name, re.IGNORECASE): type = 0x08
-                if re.search(r'antyp' , ob.name, re.IGNORECASE): type = 0x10
+                type = 0x02                                                  # b00010
+                if re.search(r'zone'  , ob.name, re.IGNORECASE): type = 0x04 # b00100
+                if re.search(r'portal', ob.name, re.IGNORECASE): type = 0x08 # b01000
+                if re.search(r'antyp' , ob.name, re.IGNORECASE): type = 0x10 # b10000
                 if type != 0x02: output.bIsItem = False
                 if type == 0x08:
                     verts = []

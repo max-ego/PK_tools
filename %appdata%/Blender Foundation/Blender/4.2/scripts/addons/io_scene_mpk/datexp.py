@@ -64,13 +64,16 @@ def dumpDAT(file, data):
             index += 1
             continue
         write_long(file,0) # 0x0
-        type = None
-        if not data.bIsItem:
-            if   ob.type == 0x02: type = 1 # reg
-            elif ob.type == 0x04: type = 2 # zone
-            elif ob.type == 0x08: type = 3 # portal
-            elif ob.type == 0x10: type = 4 # antyp
-        write_long(file,(ob.type,type)[bool(type)])
+        # -----------------------
+        # item | map |
+        # -----------------------
+        # 0x02 |  1  | renderable
+        # 0x04 |  2  | zone
+        # 0x08 |  3  | portal
+        # 0x10 |  4  | antyp
+        # -----------------------
+        type = ((ob.type).bit_length()-1,ob.type)[data.bIsItem]
+        write_long(file,type)
         write_long(file,(0,index)[data.bIsItem])
         index += 1
         size = getDATsize(ob)
