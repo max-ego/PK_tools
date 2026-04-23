@@ -1,6 +1,7 @@
 import array
 import bmesh
 import bpy
+import io
 import mathutils
 import os
 import numpy as np
@@ -8,56 +9,26 @@ import re
 import struct
 import time
 import bpy_extras
+from bpy_extras import image_utils
 from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
+from dataclasses import dataclass
+from pathlib import Path
+from types import SimpleNamespace
 
 
-def load(operator, context, filepath='', use_default=True, use_optimize=False, use_all=True, use_selection=False, use_visible=False, use_sort=False, scale_factor=1.0, global_matrix=None):
+@dataclass
+class MeshOut:
+    name: str
+    bbox: []
+    numUVs: int
+    verts: []
+    faces: []
+    mtls: {}
+    materials: []
+    lm: ''
+    type: int
 
-    global info
-
-    def info(msg='', icon='INFO'): operator.report({icon}, 'MPK Export : ' + msg)
-
-    global bDefault;   bDefault   = use_default
-    global bOptimize;  bOptimize  = use_optimize
-    global bAll;       bAll       = use_all
-    global bSelection; bSelection = use_selection
-    global bVisible;   bVisible   = use_visible
-    global bSort;      bSort      = use_sort
-    global scale;      scale      = scale_factor
-
-    save_mpk(filepath, context, global_matrix)
-
-    return {'FINISHED'}
-
-
-def save_mpk(filepath, context, global_matrix):
-
-    try: file = open(filepath, 'wb')
-    except:
-        info('access denied : \'' + filepath + '\'', icon='ERROR')
-        return
-
-    print('exporting MPK: %r...' % filepath)
-
-    duration = time.time()
-    context.window.cursor_set('WAIT')
-
-    try:
-        meshoffset = doexp(file, context, global_matrix)
-        for offset in meshoffset:
-            write_long(file, offset)
-        write_long(file, len(meshoffset))
-        write_long(file, 0xDEADBEEF) # closing
-        info('success', icon='INFO')
-    except:
-        info('something went wrong', icon='ERROR')
-
-    file.close()
-
-    context.window.cursor_set('DEFAULT')
-    print('MPK export time: %.2f' % (time.time() - duration))
-
-
+    
 zone = [
     'antyp',
     'barrier',
@@ -146,7 +117,7 @@ def getMaterial(mtl):
     return material
 
 
-def triangulate_object( mesh ):
+def triangulate_object( mesh, bSort ):
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bmesh.ops.triangulate(bm, faces=bm.faces[:])
@@ -166,7 +137,7 @@ def _map_n_pack( verts ):
     return output
 
 
-def ConvertToMPKFaces( mesh, bRound ):
+def ConvertToMPKFaces( mesh, bRound, bOptimize ):
     match mesh.normals_domain:
         case 'POINT':
             normal_source = mesh.vertex_normals
@@ -188,7 +159,7 @@ def ConvertToMPKFaces( mesh, bRound ):
 
     i = 0
     split = len(t_normal)/3 == len(mesh.polygons)*3
-    
+
     for pl in mesh.polygons:
         ii = 0
         face = []
@@ -211,24 +182,7 @@ def ConvertToMPKFaces( mesh, bRound ):
             for iii in range(3):
                 vn.append(t_normal[idx + iii])
             normal = mathutils.Vector(vn)
-            if bDefault:
-                key = struct.pack('<10f', x, z, -y, normal[0], normal[2], -normal[1], uv1[0], 1-uv1[1], uv2[0], 1-uv2[1])
-                double = vWritten.get(v)
-                if bool(double):
-                    index = None
-                    for vrt in double:
-                        index = vrt.get(key)
-                        if index: break
-                    if index is None:
-                        vWritten[v].append({key : len(verts)})
-                        face.append(len(verts))
-                        verts.append(key)
-                    else: face.append(index)
-                else:
-                    vWritten[v] = [{key : len(verts)}]
-                    face.append(len(verts))
-                    verts.append(key)
-            elif bOptimize:
+            if bOptimize:
                 key = struct.pack('<7f', x, z, -y, uv1[0], 1-uv1[1], uv2[0], 1-uv2[1])
                 double = vWritten.get(key)
                 if bool(double):
@@ -249,14 +203,33 @@ def ConvertToMPKFaces( mesh, bRound ):
                     face.append(len(verts))
                     vert[key] = normal
                     verts.append(vert)
+            else: # default
+                key = struct.pack('<10f', x, z, -y, normal[0], normal[2], -normal[1], uv1[0], 1-uv1[1], uv2[0], 1-uv2[1])
+                double = vWritten.get(v)
+                if bool(double):
+                    index = None
+                    for vrt in double:
+                        index = vrt.get(key)
+                        if index: break
+                    if index is None:
+                        vWritten[v].append({key : len(verts)})
+                        face.append(len(verts))
+                        verts.append(key)
+                    else: face.append(index)
+                else:
+                    vWritten[v] = [{key : len(verts)}]
+                    face.append(len(verts))
+                    verts.append(key)
         faces.append(face)
-    if bDefault:
-        return verts, faces
-    elif bOptimize:
+    if bOptimize:
         return _map_n_pack(verts), faces
+    else:
+        return verts, faces
 
 
-def doexp(file, context, global_matrix):
+def getGeometry(file, context, global_matrix, params):
+
+    (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale) = params
 
     scene = context.scene
     layer = context.view_layer
@@ -331,22 +304,30 @@ def doexp(file, context, global_matrix):
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode=org_mode)
 
-    offset = 0
-    meshoffset = []; total = str(len(mesh_objects))
+    output = SimpleNamespace(geom = [], bIsItem = True)
+    limit = (0xffff,0xffffffff)[filetype=='DAT']
+    # bIsItem = True
     for ob, mesh, matrix in mesh_objects:
-        triangulate_object( mesh )
+        triangulate_object( mesh, bSort )
 
         bRound = re.search(r'(?=(' + '|'.join(zone) + r'))', ob.name, re.IGNORECASE)
-        verts, faces = ConvertToMPKFaces( mesh, bRound )
+        verts, faces = ConvertToMPKFaces( mesh, bRound, bOptimize )
 
         if len(verts) == 0 or len(faces) == 0: continue
-
-        if len(verts)>0xffff:
-            info('\'%s\' is rejected : too many vertices (> 64K)' % ob.name, icon='WARNING')
+        
+        if len(verts)>limit:
+            info('\'%s\' is rejected : too many vertices (> %d)' % (ob.name,limit), icon='WARNING')
             continue
-        if len(faces)>0xffff:
-            info('\'%s\' is rejected : too many faces (> 64K)' % ob.name, icon='WARNING')
+        if len(faces)>limit:
+            info('\'%s\' is rejected : too many faces (> %d)' % (ob.name,limit), icon='WARNING')
             continue
+        if filetype=='DAT':
+            try:
+                for f in faces:
+                    assert(f[0]<=0xffff and f[2]<=0xffff and f[1]<=0xffff)
+            except:
+                info('\'%s\' is rejected : too many faces' % ob.name, icon='WARNING')
+                continue
 
         mtls = {}; _idx = None; i=0
         for pl in mesh.polygons:
@@ -362,7 +343,7 @@ def doexp(file, context, global_matrix):
         try:
             mtl_offset = 0
             for mtl in mtls.values():
-                assert(mtl_offset<=0xffff)
+                assert(mtl_offset<=limit)
                 mtl_offset += mtl[0]*3
         except:
             info('\'%s\' is rejected : too many faces' % ob.name, icon='WARNING')
@@ -371,59 +352,10 @@ def doexp(file, context, global_matrix):
         materials = ([getMaterial(None)],[])[bool(ob.material_slots)]
         for slot in ob.material_slots:
             mtl = getMaterial(slot.material)
-            materials.append(mtl);
+            materials.append(mtl)
 
         numUVs = 2 if len(mesh.uv_layers) > 1 else 1
-        meshoffset.append(offset)
 
-        # mesh entry
-        write_long(file,0xDEAFBABE); offset += SZ_INT
-
-        # mesh name
-        write_long(file,len(ob.name)+1); offset += SZ_INT
-        writeString(file,ob.name); offset += len(ob.name)+1
-
-        # transform matrix
-        dummy = struct.pack('<16f', 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1)
-        file.write(dummy); offset += 16 * SZ_FLOAT
-
-        # vertices
-        write_long(file,numUVs); offset += SZ_INT
-        write_long(file,len(verts)); offset += SZ_INT
-        for key in verts:
-            file.write(key[0:12])
-            if numUVs == 2:
-                write_float(file,0)
-                file.write(key[24:40])
-            else:
-                file.write(key[12:32])
-            offset += 8 * SZ_FLOAT
-        # normals if 2-ch
-        if numUVs == 2:
-            write_long(file,len(verts)); offset += SZ_INT
-            for key in verts:
-                file.write(key[12:24])
-                offset += 3 * SZ_FLOAT
-        else:
-            write_long(file,0); offset += SZ_INT
-
-        # bounding box
-        pkspc = mathutils.Matrix(( (1,0,0,0),(0,0,-1,0),(0,1,0,0),(0,0,0,0) ))
-        bbox_corners = [ob.matrix_world @ mathutils.Vector(corner) for corner in ob.bound_box]
-        p1 = bbox_corners[3] @ pkspc
-        p2 = bbox_corners[5] @ pkspc
-        write_float(file,p1.x); write_float(file,p1.y); write_float(file,p1.z)
-        write_float(file,p2.x); write_float(file,p2.y); write_float(file,p2.z)
-        offset += 6 * SZ_FLOAT
-
-        # faces
-        write_long(file,len(faces)*3); offset += SZ_INT
-        for f in faces:
-            write_short(file,f[0])
-            write_short(file,f[2])
-            write_short(file,f[1]); offset += 3 * SZ_SHORT
-
-        # materials
         LightMapName = ''
         if numUVs == 2:
             colls = ob.users_collection
@@ -432,40 +364,32 @@ def doexp(file, context, global_matrix):
             else:
                 LightMapName = ob.name + '_L_0000'
 
-        mtl_offset = 0
-        num_mtls = len(mtls)
-        write_long(file,num_mtls); offset += SZ_INT
-        for i in range(num_mtls):
-            write_short(file,mtl_offset); offset += SZ_SHORT
-            mtl_len = mtls.get(i)[0]
-            mtl_idx = mtls.get(i)[1]
-            mtl = materials[mtl_idx]
-            mtl_offset += mtl_len * 3
-            write_short(file,mtl_len); offset += SZ_SHORT
-            # color map : uses 1st UV-channel
-            texName = mtl.get('color')
-            write_long(file,len(texName)+1); offset += SZ_INT
-            writeString(file,texName); offset += len(texName)+1
-            mapping = struct.pack('<4f', mtl.get('c_loc')[0], mtl.get('c_loc')[1], mtl.get('c_scl')[0], mtl.get('c_scl')[1])
-            file.write(mapping); offset += 4 * SZ_FLOAT
-            # light map : uses 2nd UV-channel
-            texName = mtl.get('light')
-            if texName is None: texName = fname(LightMapName)
-            write_long(file,len(texName)+1); offset += SZ_INT
-            writeString(file,texName); offset += len(texName)+1
-            mapping = struct.pack('<4f', 0, 0, 1, 1)
-            file.write(mapping); offset += 4 * SZ_FLOAT
-            # blend map : uses 1st UV-channel
-            texName = mtl.get('blend')
-            write_long(file,len(texName)+1); offset += SZ_INT
-            writeString(file,texName); offset += len(texName)+1
-            mapping = struct.pack('<4f', mtl.get('b_loc')[0], mtl.get('b_loc')[1], mtl.get('b_scl')[0], mtl.get('b_scl')[1])
-            file.write(mapping); offset += 4 * SZ_FLOAT
-            # alpha map : uses 2nd UV-channel
-            texName = mtl.get('alpha')
-            write_long(file,len(texName)+1); offset += SZ_INT
-            writeString(file,texName); offset += len(texName)+1
-            mapping = struct.pack('<4f', 0, 0, 1, 1)
-            file.write(mapping); offset += 4 * SZ_FLOAT
+        # bounding box
+        pkspc = mathutils.Matrix(( (scale,0,0,0),(0,0,-scale,0),(0,scale,0,0),(0,0,0,0) ))
+        bbox_corners = [ob.matrix_world @ mathutils.Vector(corner) for corner in ob.bound_box]
+        p1 = bbox_corners[3] @ pkspc
+        p2 = bbox_corners[5] @ pkspc
+        bbox = struct.pack('<6f', p1.x, p1.y, p1.z, p2.x, p2.y, p2.z)
 
-    return meshoffset
+        match filetype:
+            case 'DAT':
+                type = 0x02
+                if re.search(r'zone'  , ob.name, re.IGNORECASE): type = 0x04
+                if re.search(r'portal', ob.name, re.IGNORECASE): type = 0x08
+                if re.search(r'antyp' , ob.name, re.IGNORECASE): type = 0x10
+                if type != 0x02: output.bIsItem = False
+                if type == 0x08:
+                    verts = []
+                    v0 = 3
+                    v1 = (2,6)[p1.y==p2.y]
+                    v2 = 5
+                    v3 = (4,0)[p1.y==p2.y]
+                    for v in [v0,v1,v2,v3]:
+                        p = bbox_corners[v] @ pkspc
+                        verts.append(struct.pack('<10f', p.x, p.y, p.z, 0,0,0,0,0,0,0))
+                    faces = [[2,1,0],[0,3,2]]
+                output.geom.append(MeshOut(ob.name, bbox, numUVs, verts, faces, mtls, materials, LightMapName, type))
+            case 'MPK':
+                output.geom.append(MeshOut(ob.name, bbox, numUVs, verts, faces, mtls, materials, LightMapName, 0x02))
+
+    return output

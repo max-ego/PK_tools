@@ -8,6 +8,7 @@ from bpy_extras.io_utils import (
 
 from bpy.props import (
     BoolProperty,
+    EnumProperty,
     StringProperty,
     IntProperty,
     FloatProperty,
@@ -16,9 +17,9 @@ from bpy.props import (
 
 import bpy
 bl_info = {
-    "name": "Painkiller MPK format",
+    "name": "Painkiller MPK/DAT format",
     "author": "dilettante",
-    "version": (3, 5, 0),
+    "version": (3, 6, 0),
     "blender": (4, 2, 2),
     "location": "File > Import-Export",
     "description": "Painkiller WorldMesh Import/Export",
@@ -29,10 +30,16 @@ bl_info = {
 
 if "bpy" in locals():
     import importlib
-    if "import_mpk" in locals():
-        importlib.reload(import_mpk)
-    if "export_mpk" in locals():
-        importlib.reload(export_mpk)
+    if "common" in locals():
+        importlib.reload(common)
+    if "mpkexp" in locals():
+        importlib.reload(mpkexp)
+    if "datexp" in locals():
+        importlib.reload(datexp)
+    if "pk_import" in locals():
+        importlib.reload(pk_import)
+    if "pk_export" in locals():
+        importlib.reload(pk_export)
 
 
 class ImportMPK(bpy.types.Operator, ImportHelper):
@@ -60,17 +67,54 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
             default = True )
 
     def execute(self, context):
-        from . import import_mpk
+        from . import pk_import
 
         keywords = self.as_keywords(ignore=("filter_glob",))
 
-        return import_mpk.load(self, context, **keywords)
+        return pk_import.load(self, context, **keywords)
 
     def draw(self, context):
         box = self.layout.box()
         box.prop( self, 'use_lightmaps' )
         box.prop( self, 'use_blendmaps' )
         box.prop( self, 'remove_doubles' )
+
+
+def ensure_filepath_matches_export_format(filepath, export_format):
+    import os
+    filename = os.path.basename(filepath)
+    if not filename: return filepath
+
+    stem,ext = os.path.splitext(filename)
+    if stem.startswith('.') and not ext: stem,ext = '',stem
+
+    desired_ext = '.mpk' if export_format == 'MPK' else '.dat'
+    ext_lower = ext.lower()
+    if ext_lower not in ['.mpk', '.dat']:
+        return filepath + desired_ext
+    elif ext_lower != desired_ext:
+        return filepath[:-len(ext)] + desired_ext
+    else:
+        return filepath
+
+
+def on_export_format_changed(self, context):
+
+    # Update the filename in the file browser when the format (.mpk/.dat) changes
+    sfile = context.space_data
+    if not isinstance(sfile, bpy.types.SpaceFileBrowser): return
+    if not sfile.active_operator: return
+    if sfile.active_operator.bl_idname != "EXPORT_SCENE_OT_pkmpk": return
+    
+    sfile.params.filename = ensure_filepath_matches_export_format(
+        sfile.params.filename,
+        self.export_format,
+    )
+
+    # change the filter
+    sfile.params.filter_glob = '*.mpk' if self.export_format == 'MPK' else '*.dat'
+    # update file list
+    bpy.ops.file.refresh()
 
 
 def _optimization_switch(self, context):
@@ -113,14 +157,22 @@ def _selection_switch(self, context):
 
 @orientation_helper(axis_forward='Y', axis_up='Z')
 class ExportMPK(bpy.types.Operator, ExportHelper):
-    """Export to MPK file format (.mpk)"""
+    """Export to MPK/DAT file format (.mpk/.dat)"""
     bl_idname = "export_scene.pkmpk"
-    bl_label = 'Export MPK'
+    bl_label = 'Export MPK/DAT'
     bl_options = {'PRESET', 'UNDO'}
 
-    filename_ext = ".mpk"
+    filename_ext = ''
     filter_glob: StringProperty(default="*.mpk", options={'HIDDEN'})
-            
+
+    export_format: EnumProperty(
+        name = 'Format',
+        items = (('MPK', '(*.mpk)','Map'),('DAT','(*.dat)', 'Item | Map')),
+        description = "Export format",
+        default=0,
+        update=on_export_format_changed,
+    )
+
     opt_swt : IntProperty( default = 0b10 )
 
     use_default : BoolProperty(
@@ -165,16 +217,31 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
         description="Master scale factor for all objects",
         min=0.0, max=100000.0,
         soft_min=0.0, soft_max=100000.0,
+        precision=3,
         default=1.0,
     )
 
+    def check(self, _context):
+        old_filepath = self.filepath
+        self.filepath = ensure_filepath_matches_export_format(
+            self.filepath,
+            self.export_format,
+        )
+        return self.filepath != old_filepath
+
+    def invoke(self, context, event):
+        self.filter_glob = '*.mpk' if self.export_format == 'MPK' else '*.dat'
+        return ExportHelper.invoke(self, context, event)
+
     def execute(self, context):
-        from . import export_mpk
+        from . import pk_export
 
         keywords = self.as_keywords(ignore=("axis_forward",
                                             "axis_up",
                                             "filter_glob",
+                                            "export_format",
                                             "check_existing",
+                                            "dat_swt",
                                             "opt_swt",
                                             "sel_swt",
                                             ))
@@ -184,7 +251,7 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
                                         ).to_4x4()
         keywords["global_matrix"] = global_matrix
 
-        return export_mpk.load(self, context, **keywords)
+        return pk_export.load(self, context, **keywords)
 
     def draw(self, context):
         box1 = self.layout.box()
@@ -199,6 +266,7 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
         self.layout.use_property_split = True
         self.layout.use_property_decorate = False
         self.layout.prop( self, 'scale_factor' )
+        self.layout.prop( self, 'export_format' )
 
 
 # Add to a menu
@@ -207,7 +275,7 @@ def menu_func_import(self, context):
 
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportMPK.bl_idname, text="Painkiller WorldMesh (.mpk)")
+    self.layout.operator(ExportMPK.bl_idname, text="Painkiller WorldMesh (.mpk/.dat)")
 
 
 def register():
