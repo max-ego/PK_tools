@@ -1,5 +1,6 @@
 from .common import *
 
+
 def getDATsize(ob):
     size = SZ_INT + len(ob.name)+1                      # name
     if ob.type == 0x10:
@@ -64,14 +65,16 @@ def dumpDAT(file, data):
             index += 1
             continue
         write_long(file,0) # 0x0
-        # -----------------------
-        # item | map |
-        # -----------------------
-        # 0x02 |  1  | renderable
-        # 0x04 |  2  | zone
-        # 0x08 |  3  | portal
-        # 0x10 |  4  | antyp
-        # -----------------------
+        """
+        ---------------------------
+        | map | item | type       |
+        ---------------------------
+        |  1  | 0x02 | renderable |
+        |  2  | 0x04 | zone       |
+        |  3  | 0x08 | portal     |
+        |  4  | 0x10 | antyp      |
+        ---------------------------
+        """
         type = ((ob.type).bit_length()-1,ob.type)[data.bIsItem]
         write_long(file,type)
         write_long(file,(0,index)[data.bIsItem])

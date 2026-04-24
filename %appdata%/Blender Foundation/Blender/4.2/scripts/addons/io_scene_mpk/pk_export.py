@@ -39,7 +39,7 @@ def export(filepath, context, global_matrix):
     context.window.cursor_set('WAIT')
 
     try:
-        params = (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale)
+        params = (info, filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale)
         match filetype:
             case 'MPK': saveMPK(file, context, global_matrix, params)
             case 'DAT': saveDAT(file, context, global_matrix, params)

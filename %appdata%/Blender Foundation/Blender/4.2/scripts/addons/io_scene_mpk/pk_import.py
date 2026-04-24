@@ -235,14 +235,16 @@ def CacheMeshDAT(file):
         file.seek(geometry[i].offset, io.SEEK_SET)
         if geometry[i].index == 0:
             geometry[i].meshname = readString(file)
-            # ---------------------------
-            # |       type | item | map |
-            # ---------------------------
-            # | renderable | 0x02 |  1  |
-            # |       zone | 0x04 |  2  |
-            # |     portal | 0x08 |  3  |
-            # |      antyp | 0x10 |  4  |
-            # ---------------------------
+            """
+            ---------------------------
+            |       type | item | map |
+            ---------------------------
+            | renderable | 0x02 |  1  |
+            |       zone | 0x04 |  2  |
+            |     portal | 0x08 |  3  |
+            |      antyp | 0x10 |  4  |
+            ---------------------------
+            """
             geometry[i].type = 1 << geometry[i].type
         else:
             readString(file)

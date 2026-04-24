@@ -229,7 +229,7 @@ def ConvertToMPKFaces( mesh, bRound, bOptimize ):
 
 def getGeometry(file, context, global_matrix, params):
 
-    (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale) = params
+    (info, filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale) = params
 
     scene = context.scene
     layer = context.view_layer
