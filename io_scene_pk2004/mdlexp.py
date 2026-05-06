@@ -126,7 +126,7 @@ def save_ani(file, context):
             channelbag = anim_utils.action_get_channelbag_for_slot(anim_data.action, anim_data.action_slot)
             fcurves = channelbag.fcurves
         except: pass
-    
+
     BONES = {}
     if fcurves:
         numframes = 1+context.scene.frame_end-context.scene.frame_start
@@ -137,7 +137,7 @@ def save_ani(file, context):
                 path  = fcurve.data_path
                 if path not in fcurve_cache: fcurve_cache[path] = []
                 fcurve_cache[path].append(value)
-    
+
             for pbone in arm_obj.pose.bones:
                 loc_path   = f'pose.bones["{pbone.name}"].location'
                 rot_q_path = f'pose.bones["{pbone.name}"].rotation_quaternion'
@@ -152,7 +152,6 @@ def save_ani(file, context):
                 if pbone.name not in BONES: BONES[pbone.name] = []
                 BONES[pbone.name].append(mtx)
     else: # dummy animation of two frames (rest pose)
-        print(f'dummy')
         numframes = 2
         for frame in range(numframes):
             for pbone in arm_obj.pose.bones:
