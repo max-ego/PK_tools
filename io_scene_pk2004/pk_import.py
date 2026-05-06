@@ -70,23 +70,23 @@ def load_data(filepath, context, use_lightmaps, use_blendmaps, remove_doubles, u
     duration = time.time()
     context.window.cursor_set('WAIT')
     
-    # try:
-    match filetype:
-        case 'MPK'  : load_mpk(file)
-        case 'DAT'  : load_dat(file)
-        case 'PKMDL': load_mdl(file)
-        case 'ANI'  : load_ani(file, context, use_scale, close_seq)
     try:
-        for ob in bpy.data.collections['___zone___'].all_objects:
-            ob.select_set(True)
-        bpy.ops.object.shade_flat()
-        bpy.ops.object.select_all(action='DESELECT')
-    except: pass        
-    if bRemoveDoubles: RemoveDoubles()
-    
-    info('success', icon='INFO')
-    # except:
-        # info('something went wrong', icon='ERROR')
+        match filetype:
+            case 'MPK'  : load_mpk(file)
+            case 'DAT'  : load_dat(file)
+            case 'PKMDL': load_mdl(file)
+            case 'ANI'  : load_ani(file, context, use_scale, close_seq)
+        try:
+            for ob in bpy.data.collections['___zone___'].all_objects:
+                ob.select_set(True)
+            bpy.ops.object.shade_flat()
+            bpy.ops.object.select_all(action='DESELECT')
+        except: pass        
+        if bRemoveDoubles: RemoveDoubles()
+        
+        info('success', icon='INFO')
+    except:
+        info('something went wrong', icon='ERROR')
 
     file.close()
 
