@@ -115,8 +115,8 @@ def BuildSkeleton(skin):
     names = []
     for bone in skin.skel:
         edit_bone = armature.edit_bones.new(bone.name)
-        edit_bone.head = (0,0,0) # select armature  >  Tab(edit mode)  >  A
-        edit_bone.tail = (0,1,0) # Alt+S OR Ctrl+Alt+Shift+S AND mouse move
+        edit_bone.head = (0,0,0)
+        edit_bone.tail = (0,1,0)
         mtx = bone.tm
         if bone.parent != -1:
             edit_bone.parent = bones[bone.parent]

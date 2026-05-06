@@ -36,16 +36,16 @@ def save_data(filepath, context, global_matrix):
     duration = time.time()
     context.window.cursor_set('WAIT')
 
-    # try:
-    params = (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale)
-    match filetype:
-        case 'MPK'  : save_mpk(file, context, global_matrix, params)
-        case 'DAT'  : save_dat(file, context, global_matrix, params)
-        case 'PKMDL': save_mdl(file, context, global_matrix, params)
-        case 'ANI'  : save_ani(file, context)
-    info('success', icon='INFO')
-    # except:
-        # info('something went wrong', icon='ERROR')
+    try:
+        params = (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale)
+        match filetype:
+            case 'MPK'  : save_mpk(file, context, global_matrix, params)
+            case 'DAT'  : save_dat(file, context, global_matrix, params)
+            case 'PKMDL': save_mdl(file, context, global_matrix, params)
+            case 'ANI'  : save_ani(file, context)
+        info('success', icon='INFO')
+    except:
+        info('something went wrong', icon='ERROR')
 
     file.close()
 
