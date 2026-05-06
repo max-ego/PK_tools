@@ -55,7 +55,7 @@ def CachePKMDL(file):
                 while currparent>=0 and model[i].skel[currparent].numchildren==0: currparent-=1
         # mesh objects
         for ii in range(read_long(file)):
-            geom = MeshIn('', 1, 0, [], 0, [], 0, [], 0x02, 0, 0, 0)
+            geom = MeshIn('', 1, 0, [], 0, [], 0, [], '', 0x02, 0, 0, 0)
             geom.meshname = readString(file)
             # materials
             readString(file) # 0x0

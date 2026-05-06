@@ -42,6 +42,7 @@ class MeshIn:
     faces: []
     nummat: int
     mat: []
+    normalmap: str
 
     type: int
     index: int

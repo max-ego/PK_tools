@@ -14,7 +14,7 @@ def load_mpk(file):
     mtl_cache = {}
     image_cache = {}
     for i in range(numobj):
-        geom = MeshIn('', 0, 0, [], 0, [], 0, [], 0x02, 0, 0, 0)
+        geom = MeshIn('', 0, 0, [], 0, [], 0, [], '', 0x02, 0, 0, 0)
         CacheMeshMPK(file, addr[i], geom)
         BuildMesh(geom)
 

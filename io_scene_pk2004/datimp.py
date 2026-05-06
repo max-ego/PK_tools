@@ -17,7 +17,7 @@ def CacheMeshDAT(file):
     numobj = read_long(file)
     geometry = []
     for i in range(numobj):
-        geometry.append(MeshIn('', 0, 0, [], 0, [], 0, [], 0x02, 0, 0, 0))
+        geometry.append(MeshIn('', 0, 0, [], 0, [], 0, [], '', 0x02, 0, 0, 0))
         temp = read_long(file) # 0x0
         geometry[i].type = read_long(file)
         index = read_long(file)
