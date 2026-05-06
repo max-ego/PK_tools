@@ -1,5 +1,6 @@
 from .common import *
 
+
 def dumpMPK(file, ob):
     # magic bytes
     write_long(file,0xDEAFBABE)
@@ -78,7 +79,7 @@ def dumpMPK(file, ob):
         file.write(mapping)
 
 
-def saveMPK(file, context, global_matrix, params):
+def save_mpk(file, context, global_matrix, params):
     data = getGeometry(file, context, global_matrix, params)
     offsets = []
     for ob in data.geom:

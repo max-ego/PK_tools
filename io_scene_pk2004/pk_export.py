@@ -1,17 +1,15 @@
 from .common import *
 
 
-from .mpkexp import saveMPK
-from .datexp import saveDAT
+from .mpkexp import save_mpk
+from .datexp import save_dat
+from .mdlexp import save_mdl
+from .mdlexp import save_ani
 
 
 def load(operator, context, filepath='', use_default=True, use_optimize=False, use_all=True, use_selection=False, use_visible=False, use_sort=False, scale_factor=1.0, global_matrix=None):
     
     global filetype; filetype = Path(filepath).suffix.split('.')[-1].upper()
-
-    global info
-
-    def info(msg='', icon='INFO'): operator.report({icon}, f'{filetype} Export : ' + msg)
 
     # global bDefault;   bDefault   = use_default
     global bOptimize;  bOptimize  = use_optimize
@@ -21,12 +19,12 @@ def load(operator, context, filepath='', use_default=True, use_optimize=False, u
     global bSort;      bSort      = use_sort
     global scale;      scale      = scale_factor
 
-    export(filepath, context, global_matrix)
+    save_data(filepath, context, global_matrix)
 
     return {'FINISHED'}
 
 
-def export(filepath, context, global_matrix):
+def save_data(filepath, context, global_matrix):
 
     try: file = open(filepath, 'wb')
     except:
@@ -38,14 +36,16 @@ def export(filepath, context, global_matrix):
     duration = time.time()
     context.window.cursor_set('WAIT')
 
-    try:
-        params = (info, filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale)
-        match filetype:
-            case 'MPK': saveMPK(file, context, global_matrix, params)
-            case 'DAT': saveDAT(file, context, global_matrix, params)
-        info('success', icon='INFO')
-    except:
-        info('something went wrong', icon='ERROR')
+    # try:
+    params = (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale)
+    match filetype:
+        case 'MPK'  : save_mpk(file, context, global_matrix, params)
+        case 'DAT'  : save_dat(file, context, global_matrix, params)
+        case 'PKMDL': save_mdl(file, context, global_matrix, params)
+        case 'ANI'  : save_ani(file, context)
+    info('success', icon='INFO')
+    # except:
+        # info('something went wrong', icon='ERROR')
 
     file.close()
 
