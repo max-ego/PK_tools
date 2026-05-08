@@ -124,7 +124,7 @@ def dumpDAT(file, data):
         dummy = struct.pack('<16f', 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1)
         file.write(dummy)
 
-        # 0x0 - ?
+        # 0x0
         write_long(file,0)
 
         # materials

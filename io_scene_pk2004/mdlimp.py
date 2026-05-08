@@ -58,8 +58,8 @@ def CachePKMDL(file):
             geom = MeshIn('', 1, 0, [], 0, [], 0, [], '', 0x02, 0, 0, 0)
             geom.meshname = readString(file)
             # materials
-            readString(file) # 0x0
-            readString(file) # 0x0
+            readString(file) # dead
+            readString(file) # dead
             geom.normalmap = readString(file)
             nummat = read_long(file)
             geom.nummat = nummat
@@ -80,15 +80,15 @@ def CachePKMDL(file):
             for iii in range(geom.numFaces):
                 v0,v1,v2 = read_short(file), read_short(file), read_short(file)
                 geom.faces.append(Face(v0,v1,v2))
-            read_long(file)  # 0x0
+            read_triangle_strip(file,geom)
             # vertices
             geom.numVerts = read_long(file)
             for iii in range(geom.numVerts):
                 data = file.read(32)
                 x,z,y,nx,nz,ny,u,v = struct.unpack('<8f', data)
                 geom.verts.append(Vertex(x,-y,z,nx,-ny,nz,u,1-v,0,0))
-            read_long(file) # 0x0
-            read_long(file) # 0x0
+            file.seek(read_long(file)*3*SZ_FLOAT, io.SEEK_CUR)
+            file.seek(read_long(file)*8*SZ_FLOAT, io.SEEK_CUR)
             # skinning
             geom.weights = []
             numVerts = read_long(file)
@@ -133,7 +133,7 @@ def BuildSkeleton(skin):
     return arm_obj, names
 
 
-def SetWeights(arm_obj, names, mesh_obj, weights):    
+def SetWeights(arm_obj, names, mesh_obj, weights):
     mod = mesh_obj.modifiers.new(name='Weights', type='ARMATURE')
     mod.object = arm_obj
     vertex_groups = {}

@@ -312,6 +312,39 @@ def ConvertToMPKFaces( mesh, bRound, bOptimize ):
         return verts, faces, srcvt
 
 
+def read_triangle_strip(file,geom):
+    num_verts = read_long(file)
+    if num_verts > 0:
+        faces = []
+        vl = [None for i in range(num_verts)] #vertlist
+        i = 0
+        offset = geom.mat[i].offset
+        length = geom.mat[i].size + 2
+        for j in range(num_verts):
+            if j == length:
+                i += 1
+                try:
+                    offset = geom.mat[i].offset
+                    length = geom.mat[i].size + 2
+                except: break
+
+            vl[j] = read_short(file)
+            if (vl[j - 2] == vl[j - 1] or vl[j - 1] == vl[j - 0] or vl[j - 2] == vl[j - 0]) or j < offset + 2 or j > length: continue
+
+            face = Face(0, 0, 0)
+            if (j - offset) % 2 == 0:
+                face.v0 = vl[j - 0]
+                face.v1 = vl[j - 1]
+                face.v2 = vl[j - 2]
+            else:
+                face.v0 = vl[j - 2]
+                face.v1 = vl[j - 1]
+                face.v2 = vl[j - 0]
+            faces.append(face)
+        geom.numFaces = len(faces)
+        geom.faces = faces
+
+
 def getGeometry(file, context, global_matrix, params):
 
     (filetype, bOptimize, bAll, bSelection, bVisible, bSort, scale, *rest) = params
@@ -799,20 +832,23 @@ def add_texture_to_material(
 ):
     shader = wrapper.node_principled_bsdf
     nodetree = wrapper.material.node_tree
-    shader.location = (600, 0)
+    shader.location = (600.0, 0.0)
     nodes = nodetree.nodes
     links = nodetree.links
     
     img_wrap = wrapper.base_color_texture
     img_wrap.image = color
     img_wrap.extension = 'REPEAT'
+    
+    wrapper._grid_to_location(-3, 0.001, dst_node=img_wrap.node_image, ref_node=shader)
+    wrapper._grid_to_location( 1, 0,     dst_node=wrapper.node_out,    ref_node=shader)
 
     mixer = None
 
     if mapto == 'BLEND':
         # color
         mapping = nodes.new(type='ShaderNodeMapping')
-        wrapper._grid_to_location(-2, 0, dst_node=mapping, ref_node=shader)
+        wrapper._grid_to_location(-4, 0, dst_node=mapping, ref_node=shader)
         mapping.vector_type = 'TEXTURE'
         mapping.inputs['Location'].default_value[0] = colorOffset[0]
         mapping.inputs['Location'].default_value[1] = colorOffset[1]
@@ -822,14 +858,14 @@ def add_texture_to_material(
         uv_map_node = nodes.new(type='ShaderNodeUVMap')
         uv_map_node.uv_map = 'colormap'
         links.new(uv_map_node.outputs['UV'], mapping.inputs['Vector'])
-        wrapper._grid_to_location(-3, 0, dst_node=uv_map_node, ref_node=shader)
+        wrapper._grid_to_location(-5, 0, dst_node=uv_map_node, ref_node=shader)
         # blend
         blendMap = nodes.new(type='ShaderNodeTexImage')
-        wrapper._grid_to_location(-1, -1.2, dst_node=blendMap, ref_node=shader)
+        wrapper._grid_to_location(-3, -1.2, dst_node=blendMap, ref_node=shader)
         blendMap.image = blend
         blendMap.extension = 'REPEAT'
         mapping = nodes.new(type='ShaderNodeMapping')
-        wrapper._grid_to_location(-2, -1.2, dst_node=mapping, ref_node=shader)
+        wrapper._grid_to_location(-4, -1.2, dst_node=mapping, ref_node=shader)
         mapping.vector_type = 'TEXTURE'
         mapping.inputs['Location'].default_value[0] = blendOffset[0]
         mapping.inputs['Location'].default_value[1] = blendOffset[1]
@@ -839,16 +875,16 @@ def add_texture_to_material(
         links.new(mapping.outputs['Vector'], blendMap.inputs['Vector'])
         # mask
         alphaMap = nodes.new(type='ShaderNodeTexImage')
-        wrapper._grid_to_location(-1, 1.2, dst_node=alphaMap, ref_node=shader)
+        wrapper._grid_to_location(-3, 1.2, dst_node=alphaMap, ref_node=shader)
         alphaMap.image = alpha
         alphaMap.extension = 'REPEAT'
         uv_map_node = nodes.new(type='ShaderNodeUVMap')
-        wrapper._grid_to_location(-2, 1.2, dst_node=uv_map_node, ref_node=shader)
+        wrapper._grid_to_location(-4, 1.2, dst_node=uv_map_node, ref_node=shader)
         uv_map_node.uv_map = 'lightmap'
         links.new(uv_map_node.outputs['UV'], alphaMap.inputs['Vector'])
         # mix
         mixer = nodes.new(type='ShaderNodeMixRGB')
-        wrapper._grid_to_location(0.4, -0.075, dst_node=mixer, ref_node=shader)
+        wrapper._grid_to_location(-1.75, -0.075, dst_node=mixer, ref_node=shader)
         links.new(alphaMap.outputs['Color'], mixer.inputs['Fac'])
         links.new(img_wrap.node_image.outputs['Color'], mixer.inputs['Color1'])
         links.new(blendMap.outputs['Color'], mixer.inputs['Color2'])
@@ -869,23 +905,23 @@ def add_texture_to_material(
         links.new(uv_map_node.outputs['UV'], lightMap.inputs['Vector'])
 
         mixcolor = nodes.new(type='ShaderNodeMixRGB')
-        wrapper._grid_to_location(0.4, -1.55, dst_node=mixcolor, ref_node=shader)
+        wrapper._grid_to_location(-1.75, -1.55, dst_node=mixcolor, ref_node=shader)
         mixcolor.blend_type = 'COLOR'
         mixcolor.inputs['Fac'].default_value = 1.0
         links.new(lightMap.outputs['Color'], mixcolor.inputs['Color1'])
         links.new(lightMap.outputs['Alpha'], mixcolor.inputs['Color2'])
 
         multiplier = nodes.new(type='ShaderNodeMixRGB')
-        wrapper._grid_to_location(1.2, -0.84, dst_node=multiplier, ref_node=shader)
+        wrapper._grid_to_location(-0.75, -0.84, dst_node=multiplier, ref_node=shader)
         multiplier.blend_type = 'MULTIPLY'
         multiplier.inputs['Fac'].default_value = 0.995
         if mapto == 'BLEND':
-            wrapper._grid_to_location(-1, -2.4, dst_node=lightMap, ref_node=shader)
-            wrapper._grid_to_location(-2, -2.4, dst_node=uv_map_node, ref_node=shader)
+            wrapper._grid_to_location(-3, -2.4, dst_node=lightMap, ref_node=shader)
+            wrapper._grid_to_location(-4, -2.4, dst_node=uv_map_node, ref_node=shader)
             links.new(mixer.outputs['Color'], multiplier.inputs['Color1'])
         else:
-            wrapper._grid_to_location(-1, -1.2, dst_node=lightMap, ref_node=shader)   
-            wrapper._grid_to_location(-2, -1.2, dst_node=uv_map_node, ref_node=shader)
+            wrapper._grid_to_location(-3, -1.2, dst_node=lightMap, ref_node=shader)   
+            wrapper._grid_to_location(-4, -1.2, dst_node=uv_map_node, ref_node=shader)
             links.new(img_wrap.node_image.outputs['Color'], multiplier.inputs['Color1'])
         links.new(mixcolor.outputs['Color'], multiplier.inputs['Color2'])
         links.new(multiplier.outputs['Color'], shader.inputs['Emission Color'])
@@ -894,15 +930,12 @@ def add_texture_to_material(
     if bool(PBimg):
         NormalMap = nodes.new(type='ShaderNodeNormalMap')
         NormalMap.space = 'OBJECT'
-        wrapper._grid_to_location(1.2, -0.5, dst_node=NormalMap, ref_node=shader)
+        wrapper._grid_to_location(-0.8, -0.5, dst_node=NormalMap, ref_node=shader)
         links.new(NormalMap.outputs['Normal'], shader.inputs['Normal'])
         
         normal = nodes.new(type='ShaderNodeTexImage')
         normal.image = PBimg
         normal.image.colorspace_settings.name = 'Non-Color'
         normal.extension = 'CLIP'
-        wrapper._grid_to_location(0.1, -0.8, dst_node=normal, ref_node=shader)
+        wrapper._grid_to_location(-1.9, -0.8, dst_node=normal, ref_node=shader)
         links.new(normal.outputs['Color'], NormalMap.inputs['Color'])
-
-    shader.location = (1200, 0)
-    wrapper._grid_to_location(1, 0, dst_node=wrapper.node_out, ref_node=shader)

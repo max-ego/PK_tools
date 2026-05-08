@@ -15,7 +15,6 @@ def save_mdl(file, context, global_matrix, params):
         info('No armature found', icon='WARNING')
         return
 
-    skins = []
     out = bytearray()
     skinname = os.path.basename(file.name).split('.', 1)[0]
     out += strToBytes(skinname + '\x00')
@@ -68,10 +67,12 @@ def save_mdl(file, context, global_matrix, params):
         # faces
         out += struct.pack('<I', 3*len(ob.faces))
         for f in ob.faces: out += struct.pack('<3H', f[0],f[1],f[2])
+        # triangle strip
         out += struct.pack('<I', 0)
         # vertices
         out += struct.pack('<I', len(ob.verts))
         for key in ob.verts: out += key[0:32]
+        # tangents
         out += struct.pack('<2I', 0, 0)
         # skinning
         out += struct.pack('<I', len(ob.weights))
@@ -80,6 +81,7 @@ def save_mdl(file, context, global_matrix, params):
             for influence in influences:
                 out += struct.pack('<H', influence.bone_idx)
                 out += struct.pack('<f', influence.weight)
+    skins = []
     skins.append(strToBytes(skinname + '.pkmdl' + '\x00'))
     skins.append(out)
     skins.append(strToBytes('AnimatedMesh' + '\x00'))
@@ -145,7 +147,7 @@ def save_ani(file, context):
                 try:
                     loc = mathutils.Vector((v for v in fcurve_cache[loc_path]))
                     rot = mathutils.Quaternion((v for v in fcurve_cache[rot_q_path]))
-                    scl = mathutils.Vector((v for v in fcurve_cache[scale_path]))            
+                    scl = mathutils.Vector((v for v in fcurve_cache[scale_path]))
                     mtx = mathutils.Matrix.LocRotScale(loc,rot,scl)
                 except:
                     mtx = mathutils.Matrix.Identity(4)

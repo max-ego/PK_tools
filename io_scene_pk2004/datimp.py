@@ -123,8 +123,8 @@ def CacheMeshDAT(file):
         # matrix
         file.seek(64, io.SEEK_CUR)
 
-        # 0x0 - ?
-        file.seek(4, io.SEEK_CUR)
+        # dead
+        readString(file) # 0x0
 
         # materials
         lightmap = Path(readString(file)).stem
@@ -154,38 +154,7 @@ def CacheMeshDAT(file):
                 geometry[i].faces.append(Face(v0, v2, v1))
         else:
             file.seek(SZ_SHORT*num_verts, io.SEEK_CUR)
-
-        # triangle strip
-        num_verts = read_long(file)
-        if num_verts > 0:
-            faces = []
-            vl = [None for ii in range(num_verts)] #vertlist
-            k = 0
-            offset = geometry[i].mat[k].offset;
-            length = geometry[i].mat[k].size + 2;
-            for j in range(num_verts):
-                if j == length:
-                    k += 1
-                    try:
-                        offset = geometry[i].mat[k].offset
-                        length = geometry[i].mat[k].size + 2
-                    except: break
-
-                vl[j] = read_short(file)
-                if (vl[j - 2] == vl[j - 1] or vl[j - 1] == vl[j - 0] or vl[j - 2] == vl[j - 0]) or j < offset + 2 or j > length: continue
-
-                face = Face(0, 0, 0)
-                if (j - offset) % 2 == 0:
-                    face.v0 = vl[j - 0]
-                    face.v1 = vl[j - 1]
-                    face.v2 = vl[j - 2]
-                else:
-                    face.v0 = vl[j - 2]
-                    face.v1 = vl[j - 1]
-                    face.v2 = vl[j - 0]
-                faces.append(face)
-            geometry[i].numFaces = len(faces)
-            geometry[i].faces = faces
+        read_triangle_strip(file,geometry[i])
 
         # vertices
         geometry[i].numVerts = read_long(file)
