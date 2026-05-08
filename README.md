@@ -9,6 +9,6 @@ See <a target="_blank" rel="noopener noreferrer" title="Installing Legacy Add-on
 ![1x02_Atrium](misc/1x02_Atrium.png "1x02_Atrium")
 
 ------------
-![blackdemon](misc/blackdemon.png "blackdemon")
+![moskvich408_vs_blackdemon](misc/moskvich408_vs_blackdemon.png "moskvich408_vs_blackdemon")
 
 ------------
