@@ -200,27 +200,33 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
         BONES[pose_bone.name]=[]
         if bCloseLoop: bone.keys.append(bone.keys[0])
         for i,key in enumerate(bone.keys):
-            mtx = key.tm
             if not bUseScale:
-                # parent to world
-                pbone = arm_obj.pose.bones[bone.name]
-                while pbone.parent:
-                    for _bone in anim.bones:
-                        if pbone.parent and _bone.name == pbone.parent.name:
-                            mtx = mtx @ _bone.keys[i].tm
-                            pbone = arm_obj.pose.bones[_bone.name]
-                # pk to blender
-                mtx = pkspc @ mtx.transposed() @ pkspc.transposed()
-                # !!! REMOVE SCALING !!!
-                loc,rot,scl = mtx.decompose()
-                mtx = mathutils.Matrix.LocRotScale(loc,rot,None)
-                # store absolute transform
-                BONES[pose_bone.name].append(mtx)
-                # world to parent
-                if pose_bone.parent:
-                    mtx = BONES[pose_bone.parent.name][i].inverted() @ mtx
+                mtx = key.tm
+                try:
+                    # parent to world
+                    pbone = arm_obj.pose.bones[bone.name]
+                    run = True
+                    while run and pbone.parent:
+                        for j,_bone in enumerate(anim.bones):
+                            if pbone.parent and _bone.name == pbone.parent.name:
+                                mtx = mtx @ _bone.keys[i].tm
+                                pbone = arm_obj.pose.bones[_bone.name]
+                                break
+                            if j == len(anim.bones)-1: run = False
+                    # pk to blender
+                    mtx = pkspc @ mtx.transposed() @ pkspc.transposed()
+                    # !!! REMOVE SCALING !!!
+                    loc,rot,scl = mtx.decompose()
+                    mtx = mathutils.Matrix.LocRotScale(loc,rot,None)
+                    # store absolute transform
+                    BONES[pose_bone.name].append(mtx)
+                    # world to parent
+                    if pose_bone.parent:
+                        mtx = BONES[pose_bone.parent.name][i].inverted() @ mtx
+                except:
+                    mtx = pkspc @ key.tm.transposed() @ pkspc.transposed()
             else:
-                mtx = pkspc @ mtx.transposed() @ pkspc.transposed()
+                mtx = pkspc @ key.tm.transposed() @ pkspc.transposed()
             # parent to rest ('matrix_basis' is identity in a rest pose)
             if pose_bone.parent:
                 matrix_basis = pose_bone.bone.matrix_local.inverted() @ \
