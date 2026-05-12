@@ -5,81 +5,58 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag to release (e.g., latest or v1.2.3). Leave blank to release from the selected branch.'
-        required: false
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set tag name
-        id: set_tag
+      - name: Set release metadata
+        id: meta
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ -n "${{ github.event.inputs.tag_name }}" ]; then
-              TAG_NAME="${{ github.event.inputs.tag_name }}"
-            else
-              # For workflow_dispatch, GITHUB_REF is like refs/heads/branch-name
-              BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-              if [ "$BRANCH_NAME" = "main" ]; then
-                TAG_NAME="latest"
-              else
-                TAG_NAME="dev"
-              fi
-            fi
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-            if [ "$BRANCH_NAME" = "main" ]; then
-              TAG_NAME="latest"
-            else
-              TAG_NAME="dev"
-            fi
-          else
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          elif [ "${GITHUB_REF#refs/heads/}" = "main" ]; then
             TAG_NAME="latest"
+          else
+            TAG_NAME="dev"
           fi
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "archive_name=io_scene_pk2004-${TAG_NAME}.zip" >> $GITHUB_OUTPUT
 
-      - name: Set archive prefix and name
-        id: archive_prefix
+      - name: Delete existing release and tag
+        if: steps.meta.outputs.tag_name == 'latest' || steps.meta.outputs.tag_name == 'dev'
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            PREFIX="tag-${GITHUB_REF#refs/tags/}"
-          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
-            PREFIX="branch-${GITHUB_REF#refs/heads/}"
-          else
-            PREFIX="latest"
-          fi
-          ARCHIVE_NAME="io_scene_pk2004-${PREFIX}.zip"
-          echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
-          echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+          TAG="${{ steps.meta.outputs.tag_name }}"
+          # Delete release if it exists (ignore errors)
+          gh release delete "$TAG" --yes --cleanup-tag || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Archive Release
         uses: thedoctor0/zip-release@0.7.6
         with:
           type: 'zip'
           path: io_scene_pk*
-          filename: ${{ steps.archive_prefix.outputs.archive_name }}
+          filename: ${{ steps.meta.outputs.archive_name }}
           exclusions: '*.git*'
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ steps.set_tag.outputs.tag_name }}
-          name: ${{ steps.set_tag.outputs.tag_name == 'latest' && 'PK Blender plugins latest' || format('PK Blender plugins {0}', steps.set_tag.outputs.tag_name) }}
-          files: ${{ steps.archive_prefix.outputs.archive_name }}
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.tag_name == 'latest' && 'PK Blender plugins latest' || format('PK Blender plugins {0}', steps.meta.outputs.tag_name) }}
+          files: ${{ steps.meta.outputs.archive_name }}
+          target_commitish: ${{ github.sha }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.meta.outputs.tag_name == 'dev' }}
+          make_latest: ${{ steps.meta.outputs.tag_name == 'latest' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
