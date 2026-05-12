@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 env:
-  PLUGIN_NAME: io_scene_pk2004
+  PLUGIN_NAME: "io_scene_pk2004"
+  RELEASE_NAME: "PK Blender plugins"
 
 jobs:
   build_and_release:
@@ -54,7 +55,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
-          name: ${{ steps.meta.outputs.tag_name == 'latest' && 'PK Blender plugins latest' || format('PK Blender plugins {0}', steps.meta.outputs.tag_name) }}
+          name: ${{ format('{0} {1}', env.RELEASE_NAME, steps.meta.outputs.tag_name) }}
           files: ${{ steps.meta.outputs.archive_name }}
           target_commitish: ${{ github.sha }}
           draft: false
