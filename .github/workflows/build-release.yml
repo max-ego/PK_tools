@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag to release (e.g., latest or v1.2.3). Leave blank to release from the selected branch.'
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set tag name
+        id: set_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+              TAG_NAME="${{ github.event.inputs.tag_name }}"
+            else
+              # For workflow_dispatch, GITHUB_REF is like refs/heads/branch-name
+              BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+              if [ "$BRANCH_NAME" = "main" ]; then
+                TAG_NAME="latest"
+              else
+                TAG_NAME="dev"
+              fi
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            if [ "$BRANCH_NAME" = "main" ]; then
+              TAG_NAME="latest"
+            else
+              TAG_NAME="dev"
+            fi
+          else
+            TAG_NAME="latest"
+          fi
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Set archive prefix and name
+        id: archive_prefix
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            PREFIX="tag-${GITHUB_REF#refs/tags/}"
+          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+            PREFIX="branch-${GITHUB_REF#refs/heads/}"
+          else
+            PREFIX="latest"
+          fi
+          ARCHIVE_NAME="io_scene_pk2004-${PREFIX}.zip"
+          echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
+          echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Archive Release
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          path: io_scene_pk*
+          filename: ${{ steps.archive_prefix.outputs.archive_name }}
+          exclusions: '*.git*'
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.set_tag.outputs.tag_name }}
+          name: ${{ steps.set_tag.outputs.tag_name == 'latest' && 'PK Blender plugins latest' || format('PK Blender plugins {0}', steps.set_tag.outputs.tag_name) }}
+          files: ${{ steps.archive_prefix.outputs.archive_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
