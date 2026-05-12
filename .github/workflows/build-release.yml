@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PLUGIN_NAME: io_scene_pk2004
+
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
@@ -29,13 +32,12 @@ jobs:
             TAG_NAME="dev"
           fi
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "archive_name=io_scene_pk2004-${TAG_NAME}.zip" >> $GITHUB_OUTPUT
+          echo "archive_name=${PLUGIN_NAME}-${TAG_NAME}.zip" >> $GITHUB_OUTPUT
 
       - name: Delete existing release and tag
         if: steps.meta.outputs.tag_name == 'latest' || steps.meta.outputs.tag_name == 'dev'
         run: |
           TAG="${{ steps.meta.outputs.tag_name }}"
-          # Delete release if it exists (ignore errors)
           gh release delete "$TAG" --yes --cleanup-tag || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -44,7 +46,7 @@ jobs:
         uses: thedoctor0/zip-release@0.7.6
         with:
           type: 'zip'
-          path: io_scene_pk*
+          path: ${{ env.PLUGIN_NAME }}
           filename: ${{ steps.meta.outputs.archive_name }}
           exclusions: '*.git*'
 
