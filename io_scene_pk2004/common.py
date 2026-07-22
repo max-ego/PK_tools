@@ -25,9 +25,10 @@ def set_glob(params):
     global bLightmaps
     global bBlendmaps
     global dirname
+    global bRecursive
     global mtl_cache
     global image_cache
-    tm,bLightmaps,bBlendmaps,dirname=params
+    tm,bLightmaps,bBlendmaps,dirname,bRecursive=params
     mtl_cache = {}
     image_cache = {}
 
@@ -139,8 +140,21 @@ def write_float(file,value):
     file.write(struct.pack('<f',value))
 
 
+def get_path(filepath):
+    parts = Path(filepath).parts
+    leaf = 'Levels'
+    if leaf in parts:
+        idx = parts.index(leaf)
+        return Path(*parts[idx+1:])
+    return None
+
+
 def fname(filepath):
-    return os.path.basename(filepath).split('.', 1)[0]
+    try:
+        path/path
+        return '../' + get_path(filepath).as_posix().split('.', 1)[0]
+    except:
+        return Path(filepath).stem
 
 
 def getMaterial(mtl):
@@ -161,20 +175,20 @@ def getMaterial(mtl):
         try:
             normal = wrapper.node_principled_bsdf.inputs['Normal'].links[0].from_node
             tex_image = normal.inputs['Color'].links[0].from_node
-            material['PBimg'] = fname(tex_image.image.name)
+            material['PBimg'] = fname(tex_image.image.filepath)
         except: pass
         # lightmap
         try:
             mix_rgb = wrapper.node_principled_bsdf.inputs['Emission Color'].links[0].from_node
             color = mix_rgb.inputs['Color2'].links[0].from_node
             tex_image = color.inputs['Color1'].links[0].from_node
-            material['light'] = fname(tex_image.image.name)
+            material['light'] = fname(tex_image.image.filepath)
         except: pass
         # diffuse only
         try:
             # color
             tex_image = wrapper.base_color_texture
-            material['color'] = fname(tex_image.image.name)
+            material['color'] = fname(tex_image.image.filepath)
             return material
         except: pass
         # blended
@@ -182,19 +196,19 @@ def getMaterial(mtl):
             mix_rgb = wrapper.node_principled_bsdf.inputs['Base Color'].links[0].from_node
             # color
             tex_image = mix_rgb.inputs['Color1'].links[0].from_node
-            material['color'] = fname(tex_image.image.name)
+            material['color'] = fname(tex_image.image.filepath)
             mapping = tex_image.inputs['Vector'].links[0].from_node        
             material['c_loc'] = mapping.inputs['Location'].default_value[0], mapping.inputs['Location'].default_value[1]
             material['c_scl'] = 1/mapping.inputs['Scale'].default_value[0], 1/mapping.inputs['Scale'].default_value[1]
             # blend
             tex_image = mix_rgb.inputs['Color2'].links[0].from_node
-            material['blend'] = fname(tex_image.image.name)
+            material['blend'] = fname(tex_image.image.filepath)
             mapping = tex_image.inputs['Vector'].links[0].from_node
             material['b_loc'] = mapping.inputs['Location'].default_value[0], mapping.inputs['Location'].default_value[1]
             material['b_scl'] = 1/mapping.inputs['Scale'].default_value[0], 1/mapping.inputs['Scale'].default_value[1]
             # alpha
             tex_image = mix_rgb.inputs['Fac'].links[0].from_node
-            material['alpha'] = fname(tex_image.image.name)
+            material['alpha'] = fname(tex_image.image.filepath)
             return material
         except: pass
     return material
@@ -788,21 +802,21 @@ def read_texture_image(filepath):
         basename + '.dds',
         dirname=dirname,
         place_holder=False,
-        recursive=True,
+        recursive=bRecursive,
     )
     if image is None:
         image = image_utils.load_image(
         basename + '.tga',
         dirname=dirname,
         place_holder=False,
-        recursive=True,
+        recursive=bRecursive,
         )
     if image is None:
         image = image_utils.load_image(
         basename + '.bmp',
         dirname=dirname,
         place_holder=False,
-        recursive=True,
+        recursive=bRecursive,
         )
     # set the 'dds' placeholder if no texture found
     if image is None:

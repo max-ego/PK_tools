@@ -29,9 +29,9 @@ def save_mdl(file, context, global_matrix, params):
         out += strToBytes(bone.name + '\x00')
         pose_bone = arm_obj.pose.bones[bone.name]
         # parent space matrix 'REST'
-        mtx = pose_bone.bone.matrix_local
+        mtx = arm_obj.matrix_world @ pose_bone.bone.matrix_local
         if bone.parent != None:
-            mtx = pose_bone.parent.bone.matrix_local.inverted() @ mtx
+            mtx = (arm_obj.matrix_world @ pose_bone.parent.bone.matrix_local).inverted() @ mtx
         mtx = pkspc.inverted() @ mtx.transposed() @ pkspc.inverted().transposed()
         flat = [item for row in mtx for item in row]
         out += struct.pack('16f', *flat)
@@ -172,8 +172,8 @@ def save_ani(file, context):
             out += struct.pack('<f', frame * duration / numframes)
             # key
             matrix_basis = BONES[pbone.name][frame]
-            mtx = pbone.bone.matrix_local
-            if pbone.parent: mtx = pbone.parent.bone.matrix_local.inverted() @ mtx
+            mtx = arm_obj.matrix_world @ pbone.bone.matrix_local
+            if pbone.parent: mtx = (arm_obj.matrix_world @ pbone.parent.bone.matrix_local).inverted() @ mtx
             mtx = mtx @ matrix_basis
             mtx = pkspc.inverted() @ mtx.transposed() @ pkspc.inverted().transposed()
             flat = [item for row in mtx for item in row]

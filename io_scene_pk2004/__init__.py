@@ -19,7 +19,7 @@ import bpy
 bl_info = {
     "name": "Painkiller (MPK/DAT/PKMDL/ANI) format",
     "author": "dilettante",
-    "version": (4, 0, 0),
+    "version": (4, 1, 0),
     "blender": (4, 2, 2),
     "location": "File > Import-Export",
     "description": "Painkiller Asset Import/Export",
@@ -50,6 +50,20 @@ if "bpy" in locals():
         importlib.reload(pk_export)
 
 
+def on_use_hierarchy(self, context):
+    if self.use_hierarchy:
+        self.use_lightmaps = True
+        self.use_blendmaps = True
+
+
+def on_use_lightmaps(self, context):
+    if not self.use_lightmaps: self.use_hierarchy = False
+
+
+def on_use_blendmaps(self, context):
+    if not self.use_blendmaps: self.use_hierarchy = False
+
+
 class ImportMPK(bpy.types.Operator, ImportHelper):
     """Import from MPK/DAT file format (.mpk/.dat)"""
     bl_idname = "import_scene.pkmpk"
@@ -61,18 +75,26 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
 
     use_lightmaps : BoolProperty(
             name = "Enable lightmaps",
-            description = "Adds lightmaps to materials",
-            default = True )
+            description = "Add lightmaps to materials",
+            default = True,
+            update = on_use_lightmaps )
 
     use_blendmaps : BoolProperty(
             name = "Enable blendmaps",
-            description = "Adds blendmaps to materials",
-            default = True )
+            description = "Add blendmaps to materials",
+            default = True,
+            update = on_use_blendmaps )
 
     remove_doubles : BoolProperty(
             name = "Merge vertices",
-            description = "Removes double vertices",
+            description = "Remove double vertices",
             default = True )
+
+    use_hierarchy : BoolProperty(
+            name = "Directory hierarchy",
+            description = "Respect directory hierarchy in texture search",
+            default = False,
+            update = on_use_hierarchy )
 
     def execute(self, context):
         from . import pk_import
@@ -82,10 +104,27 @@ class ImportMPK(bpy.types.Operator, ImportHelper):
         return pk_import.load(self, context, **keywords)
 
     def draw(self, context):
-        box = self.layout.box()
-        box.prop( self, 'use_lightmaps' )
-        box.prop( self, 'use_blendmaps' )
-        box.prop( self, 'remove_doubles' )
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        import_panel_geometry(layout, self)
+        import_panel_textures(layout, self)
+
+
+def import_panel_geometry(layout, operator):
+    header, body = layout.panel("PKMPK_import_geometry", default_closed=False)
+    header.label(text="Geometry")
+    if body:
+        body.prop(operator, "use_lightmaps")
+        body.prop(operator, "use_blendmaps")
+        body.prop(operator, "remove_doubles")
+
+
+def import_panel_textures(layout, operator):
+    header, body = layout.panel("PKMPK_import_textures", default_closed=False)
+    header.label(text="Textures")
+    if body: body.prop(operator, "use_hierarchy")
 
 
 def ensure_filepath_matches_format(filepath, fileformat):
@@ -178,19 +217,18 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
         items = (('MPK', '(*.mpk)','Map'),('DAT','(*.dat)', 'Item | Map')),
         description = "Export format",
         default = 0,
-        update=on_format_changed,
-    )
+        update = on_format_changed )
 
     opt_swt : IntProperty( default = 0b10 )
 
     use_default : BoolProperty(
-            name = "Default",
+            name = "Off",
             description = "Standard conversion",
             default = True,
             update = _optimization_switch )
 
     use_optimize : BoolProperty(
-            name = "Optimize",
+            name = "On",
             description = "Remove double vertices",
             default = False,
             update = _optimization_switch )
@@ -218,6 +256,11 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
     use_sort: BoolProperty(
             name="Sort",
             description="Sort faces by materials",
+            default = True )
+
+    use_path: BoolProperty(
+            name="Preserve texture path",
+            description="Preserve texture path",
             default = False )
 
     scale_factor: FloatProperty(
@@ -254,6 +297,7 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
                                             "check_existing",
                                             "opt_swt",
                                             "sel_swt",
+                                            "use_path",
                                             ))
 
         global_matrix = axis_conversion(from_forward=self.axis_forward,
@@ -261,24 +305,58 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
                                         ).to_4x4()
         keywords["global_matrix"] = global_matrix
 
+        common.path = self.use_path
         common.info = self.info
         pk_export.info = self.info
         return pk_export.load(self, context, **keywords)
 
-    def draw(self, context):
-        box1 = self.layout.box()
-        box1.prop( self, 'use_default' )
-        box1.prop( self, 'use_optimize' )
-        box2 = self.layout.box()
-        box2.prop( self, 'use_all' )
-        box2.prop( self, 'use_selection' )
-        box2.prop( self, 'use_visible' )
-        box3 = self.layout.box()
-        box3.prop( self, 'use_sort' )
-        self.layout.use_property_split = True
-        self.layout.use_property_decorate = False
-        self.layout.prop( self, 'scale_factor' )
+    def draw(self, context):        
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
         self.layout.prop( self, 'fileformat' )
+
+        export_panel_include(layout, self)
+        export_panel_optimize(layout, self)
+        export_panel_materials(layout, self)
+        export_panel_textures(layout, self)
+        export_panel_transform(layout, self)
+
+
+def export_panel_include(layout, operator):
+    header, body = layout.panel("PKMPK_export_include", default_closed=False)
+    header.label(text="Include")
+    if body:
+        sublayout = body.column(heading="Limit to")
+        sublayout.prop(operator, "use_all")
+        sublayout.prop(operator, "use_selection")
+        sublayout.prop(operator, "use_visible")
+
+
+def export_panel_optimize(layout, operator):
+    header, body = layout.panel("PKMPK_export_optimize", default_closed=False)
+    header.label(text="Optimize")
+    if body:
+        body.prop(operator, "use_default")
+        body.prop(operator, "use_optimize")
+
+
+def export_panel_materials(layout, operator):
+    header, body = layout.panel("PKMPK_export_materials", default_closed=True)
+    header.label(text="Material Idxs")
+    if body: body.prop(operator, "use_sort")
+
+
+def export_panel_textures(layout, operator):
+    header, body = layout.panel("PKMPK_export_textures", default_closed=True)
+    header.label(text="Textures")
+    if body: body.prop(operator, "use_path")
+
+
+def export_panel_transform(layout, operator):
+    header, body = layout.panel("PKMPK_export_transform", default_closed=True)
+    header.label(text="Transform")
+    if body: body.prop(operator, "scale_factor")
 
 
 class ImportMDL(bpy.types.Operator, ImportHelper):
@@ -295,12 +373,16 @@ class ImportMDL(bpy.types.Operator, ImportHelper):
         items = (('PKMDL', '(*.pkmdl)','Model'),('ANI','(*.ani)', 'Animation')),
         description = "Import format",
         default = 0,
-        update=on_format_changed,
-    )
+        update = on_format_changed )
 
     use_lightmaps : BoolProperty( default = False )
     use_blendmaps : BoolProperty( default = False )
     remove_doubles : BoolProperty( default = False )
+
+    use_hierarchy : BoolProperty(
+            name = "Directory hierarchy",
+            description = "Respect directory hierarchy in texture search",
+            default = False )
 
     use_scale: BoolProperty(
             name="Use scale",
@@ -330,12 +412,16 @@ class ImportMDL(bpy.types.Operator, ImportHelper):
         self.layout.use_property_split = True
         self.layout.use_property_decorate = False
         self.layout.prop( self, 'fileformat' )
-        self.layout.use_property_split = False
-        self.layout.use_property_decorate = True
+        header, body = self.layout.panel("MDL_ANI_import", default_closed=False)
         if self.fileformat == 'ANI':
-            box1 = self.layout.box()
-            box1.prop( self, 'close_seq' )
-            box1.prop( self, 'use_scale' )
+            header.label( text="Animation" )
+            if body:
+                body.prop( self, "close_seq" )
+                body.prop( self, "use_scale" )
+        else:
+            header.label( text="Textures" )
+            if body:
+                body.prop( self, "use_hierarchy" )
 
 
 @orientation_helper(axis_forward='Y', axis_up='Z')
@@ -353,8 +439,7 @@ class ExportMDL(bpy.types.Operator, ExportHelper):
         items = (('PKMDL', '(*.pkmdl)','Model'),('ANI','(*.ani)', 'Animation')),
         description = "Export format",
         default = 0,
-        update=on_format_changed,
-    )
+        update = on_format_changed )
 
     use_optimize : BoolProperty( default = True )
 
@@ -422,13 +507,14 @@ class ExportMDL(bpy.types.Operator, ExportHelper):
         self.layout.use_property_split = True
         self.layout.use_property_decorate = False
         self.layout.prop( self, 'fileformat' )
-        self.layout.use_property_split = False
-        self.layout.use_property_decorate = True
         if self.fileformat == 'PKMDL':
-            box1 = self.layout.box()
-            box1.prop( self, 'use_all' )
-            box1.prop( self, 'use_selection' )
-            box1.prop( self, 'use_visible' )
+            header, body = self.layout.panel("MDL_export_include", default_closed=False)
+            header.label( text="Include" )
+            if body:                
+                sublayout = body.column(heading="Limit to")
+                sublayout.prop( self, "use_all" )
+                sublayout.prop( self, "use_selection" )
+                sublayout.prop( self, "use_visible" )
 
 
 # Add to a menu
