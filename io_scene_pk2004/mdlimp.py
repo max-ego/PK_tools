@@ -191,7 +191,8 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
     action = bpy.data.actions.new(name=action_name)
     if not arm_obj.animation_data:
         arm_obj.animation_data_create()
-    arm_obj.animation_data.action = action
+    anim_data = arm_obj.animation_data
+    anim_data.action = action
 
     numframes = anim.bones[0].numframes + int(bCloseLoop)
     context.scene.frame_end = numframes
@@ -202,8 +203,6 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
     for bone in anim.bones:
         try: pose_bone = arm_obj.pose.bones[bone.name]
         except: continue
-
-        anim_data = arm_obj.animation_data
 
         loc_path   = f'pose.bones["{bone.name}"].location'
         rot_q_path = f'pose.bones["{bone.name}"].rotation_quaternion'
