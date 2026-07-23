@@ -230,14 +230,6 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
         for i in range(3): scl_fcurve[i].keyframe_points.add(count=numframes)
         for i in range(4): rot_fcurve[i].keyframe_points.add(count=numframes)
 
-        try:     # blender 4
-            fcurves = anim_data.action.fcurves
-        except Exception:
-            try: # blender 5
-                channelbag = anim_utils.action_get_channelbag_for_slot(anim_data.action, anim_data.action_slot)
-                fcurves = channelbag.fcurves
-            except: pass
-
         BONES[pose_bone.name]=[]
         if bCloseLoop: bone.keys.append(bone.keys[0])
         for i,key in enumerate(bone.keys):
@@ -282,4 +274,10 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
             for j in range(4):
                 rot_fcurve[j].keyframe_points[i].co = (i, rot[j])
 
-    fcurves.update()
+    try:     # blender 4
+        anim_data.action.fcurves.update()
+    except Exception:
+        try: # blender 5
+            channelbag = anim_utils.action_get_channelbag_for_slot(anim_data.action, anim_data.action_slot)
+            channelbag.fcurves.update()
+        except: pass
