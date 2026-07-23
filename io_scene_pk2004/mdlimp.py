@@ -183,6 +183,11 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
     except: return
 
     action_name = os.path.splitext(os.path.basename(file.name))[0]
+    try:
+        action = bpy.data.actions[action_name]
+        action.use_fake_user = False
+        bpy.data.actions.remove(action)
+    except: pass
     action = bpy.data.actions.new(name=action_name)
     if not arm_obj.animation_data:
         arm_obj.animation_data_create()
@@ -197,6 +202,42 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
     for bone in anim.bones:
         try: pose_bone = arm_obj.pose.bones[bone.name]
         except: continue
+
+        anim_data = arm_obj.animation_data
+
+        loc_path   = f'pose.bones["{bone.name}"].location'
+        rot_q_path = f'pose.bones["{bone.name}"].rotation_quaternion'
+        scl_path   = f'pose.bones["{bone.name}"].scale'
+
+        loc_fcurve = []
+        scl_fcurve = []
+        rot_fcurve = []
+        for i in range(3):
+            try:    # < Blender 4.4
+                loc_fcurve.append(anim_data.action.fcurves.new(data_path=loc_path, index=i))
+                scl_fcurve.append(anim_data.action.fcurves.new(data_path=scl_path, index=i))
+            except: # > blender 4.3
+                loc_fcurve.append(anim_data.action.fcurve_ensure_for_datablock(arm_obj, data_path=loc_path, index=i))
+                scl_fcurve.append(anim_data.action.fcurve_ensure_for_datablock(arm_obj, data_path=scl_path, index=i))
+
+        for i in range(4):
+            try:    # < Blender 4.4
+                rot_fcurve.append(anim_data.action.fcurves.new(data_path=rot_q_path, index=i))
+            except: # > blender 4.3
+                rot_fcurve.append(anim_data.action.fcurve_ensure_for_datablock(arm_obj, data_path=rot_q_path, index=i))
+
+        for i in range(3): loc_fcurve[i].keyframe_points.add(count=numframes)
+        for i in range(3): scl_fcurve[i].keyframe_points.add(count=numframes)
+        for i in range(4): rot_fcurve[i].keyframe_points.add(count=numframes)
+
+        try:     # blender 4
+            fcurves = anim_data.action.fcurves
+        except Exception:
+            try: # blender 5
+                channelbag = anim_utils.action_get_channelbag_for_slot(anim_data.action, anim_data.action_slot)
+                fcurves = channelbag.fcurves
+            except: pass
+
         BONES[pose_bone.name]=[]
         if bCloseLoop: bone.keys.append(bone.keys[0])
         for i,key in enumerate(bone.keys):
@@ -215,7 +256,7 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
                             if j == len(anim.bones)-1: run = False
                     # pk to blender
                     mtx = pkspc @ mtx.transposed() @ pkspc.transposed()
-                    # !!! REMOVE SCALING !!!
+                    # remove scaling
                     loc,rot,scl = mtx.decompose()
                     mtx = mathutils.Matrix.LocRotScale(loc,rot,None)
                     # store absolute transform
@@ -234,7 +275,11 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
             else:
                 matrix_basis = pose_bone.bone.matrix_local.inverted() @ mtx
             # apply transform
-            pose_bone.matrix_basis = matrix_basis
-            pose_bone.keyframe_insert(data_path='location',           frame=i)
-            pose_bone.keyframe_insert(data_path='rotation_quaternion',frame=i)
-            pose_bone.keyframe_insert(data_path='scale',              frame=i)
+            loc,rot,scl = matrix_basis.decompose()
+            for j in range(3):
+                loc_fcurve[j].keyframe_points[i].co = (i, loc[j])
+                scl_fcurve[j].keyframe_points[i].co = (i, scl[j])
+            for j in range(4):
+                rot_fcurve[j].keyframe_points[i].co = (i, rot[j])
+
+    fcurves.update()

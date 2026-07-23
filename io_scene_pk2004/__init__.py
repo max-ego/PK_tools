@@ -19,7 +19,7 @@ import bpy
 bl_info = {
     "name": "Painkiller (MPK/DAT/PKMDL/ANI) format",
     "author": "dilettante",
-    "version": (4, 1, 0),
+    "version": (4, 1, 1),
     "blender": (4, 2, 2),
     "location": "File > Import-Export",
     "description": "Painkiller Asset Import/Export",
