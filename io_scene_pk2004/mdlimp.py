@@ -12,7 +12,7 @@ class Skin:
     offset   : int
 
 
-def CachePKMDL(file):
+def CachePKMDL(file, bSwap):
     file.seek(0, io.SEEK_SET)
     namelist = []
     for i in range(read_long(file)): namelist.append(readString(file))
@@ -60,7 +60,7 @@ def CachePKMDL(file):
             # materials
             readString(file) # dead
             readString(file) # dead
-            geom.normalmap = readString(file)
+            geom.normalmap = os.path.basename(readString(file)).split('.', 1)[0]
             nummat = read_long(file)
             geom.nummat = nummat
             for iii in range(nummat):
@@ -76,11 +76,12 @@ def CachePKMDL(file):
                 )
                 geom.mat.append(mat)
             # faces
+            if bSwap: read_triangle_strip(file,geom)
             geom.numFaces = int(read_long(file)/3)
             for iii in range(geom.numFaces):
                 v0,v1,v2 = read_short(file), read_short(file), read_short(file)
                 geom.faces.append(Face(v0,v1,v2))
-            read_triangle_strip(file,geom)
+            if not bSwap: read_triangle_strip(file,geom)
             # vertices
             geom.numVerts = read_long(file)
             for iii in range(geom.numVerts):
@@ -146,7 +147,10 @@ def SetWeights(arm_obj, names, mesh_obj, weights):
 
 
 def load_mdl(file):
-    pkmdl = CachePKMDL(file)
+    try:
+        pkmdl = CachePKMDL(file, False) # regular pkmdl
+    except:
+        pkmdl = CachePKMDL(file, True) # PainKiller.pkmdl
     mtl_cache = {}
     image_cache = {}
     for skin in pkmdl:
