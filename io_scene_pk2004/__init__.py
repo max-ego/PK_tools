@@ -260,7 +260,7 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
 
     use_path: BoolProperty(
             name="Preserve texture path",
-            description="Preserve texture path",
+            description="Preserve relative paths for textures",
             default = False )
 
     scale_factor: FloatProperty(
@@ -319,7 +319,6 @@ class ExportMPK(bpy.types.Operator, ExportHelper):
         export_panel_include(layout, self)
         export_panel_optimize(layout, self)
         export_panel_materials(layout, self)
-        export_panel_textures(layout, self)
         export_panel_transform(layout, self)
 
 
@@ -327,10 +326,10 @@ def export_panel_include(layout, operator):
     header, body = layout.panel("PKMPK_export_include", default_closed=False)
     header.label(text="Include")
     if body:
-        sublayout = body.column(heading="Limit to")
-        sublayout.prop(operator, "use_all")
-        sublayout.prop(operator, "use_selection")
-        sublayout.prop(operator, "use_visible")
+        col = body.column(heading="Limit to")
+        col.prop(operator, "use_all")
+        col.prop(operator, "use_selection")
+        col.prop(operator, "use_visible")
 
 
 def export_panel_optimize(layout, operator):
@@ -343,14 +342,12 @@ def export_panel_optimize(layout, operator):
 
 def export_panel_materials(layout, operator):
     header, body = layout.panel("PKMPK_export_materials", default_closed=True)
-    header.label(text="Material Idxs")
-    if body: body.prop(operator, "use_sort")
-
-
-def export_panel_textures(layout, operator):
-    header, body = layout.panel("PKMPK_export_textures", default_closed=True)
-    header.label(text="Textures")
-    if body: body.prop(operator, "use_path")
+    header.label(text="Material")
+    if body:
+        col = body.column(heading="Indices")
+        col.prop(operator, "use_sort")
+        col = body.column(heading="Textures")
+        col.prop(operator, "use_path")
 
 
 def export_panel_transform(layout, operator):
