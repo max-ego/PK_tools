@@ -277,10 +277,8 @@ def load_ani(file, context, bUseScale = False, bCloseLoop = False):
             for j in range(4):
                 rot_fcurve[j].keyframe_points[i].co = (i, rot[j])
 
-    try:     # blender 4
+    try:    # blender 4
         anim_data.action.fcurves.update()
-    except Exception:
-        try: # blender 5
-            channelbag = anim_utils.action_get_channelbag_for_slot(anim_data.action, anim_data.action_slot)
-            channelbag.fcurves.update()
-        except: pass
+    except: # blender 5
+        channelbag = anim_utils.action_get_channelbag_for_slot(anim_data.action, anim_data.action_slot)
+        channelbag.fcurves.update()
