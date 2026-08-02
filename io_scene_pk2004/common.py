@@ -172,11 +172,21 @@ def getMaterial(mtl):
     if mtl and mtl.use_nodes:
         wrapper = PrincipledBSDFWrapper(mtl)
         # normalmap
-        try:
-            normal = wrapper.node_principled_bsdf.inputs['Normal'].links[0].from_node
-            tex_image = normal.inputs['Color'].links[0].from_node
+        try: # stub link
+            tex_image = wrapper.node_principled_bsdf.inputs['Normal'].links[0].from_node
             material['PBimg'] = fname(tex_image.image.filepath)
-        except: pass
+        except Exception:
+            try: # standard-only graph
+                normal = wrapper.node_principled_bsdf.inputs['Normal'].links[0].from_node
+                tex_image = normal.inputs['Color'].links[0].from_node
+                material['PBimg'] = fname(tex_image.image.filepath)
+            except Exception:
+                try: # fully-adapted graph
+                    combine = normal.inputs['Color'].links[0].from_node
+                    separate = combine.inputs['Red'].links[0].from_node
+                    tex_image = separate.inputs['Color'].links[0].from_node
+                    material['PBimg'] = fname(tex_image.image.filepath)
+                except: pass
         # lightmap
         try:
             mix_rgb = wrapper.node_principled_bsdf.inputs['Emission Color'].links[0].from_node
@@ -944,12 +954,33 @@ def add_texture_to_material(
     if bool(PBimg):
         NormalMap = nodes.new(type='ShaderNodeNormalMap')
         NormalMap.space = 'OBJECT'
-        wrapper._grid_to_location(-0.8, -0.5, dst_node=NormalMap, ref_node=shader)
+        wrapper._grid_to_location(-0.7, -0.44, dst_node=NormalMap, ref_node=shader)
         links.new(NormalMap.outputs['Normal'], shader.inputs['Normal'])
-        
+
+        CombineColor = nodes.new(type='ShaderNodeCombineColor')
+        wrapper._grid_to_location(-1.3, -0.68, dst_node=CombineColor, ref_node=shader)
+        links.new(CombineColor.outputs['Color'], NormalMap.inputs['Color'])
+
+        Invert = nodes.new(type='ShaderNodeInvert')
+        Invert.inputs['Fac'].default_value = 1.0
+        wrapper._grid_to_location(-1.3, -1.2, dst_node=Invert, ref_node=shader)
+        links.new(Invert.outputs['Color'], CombineColor.inputs['Green'])
+
+        SeparateColor = nodes.new(type='ShaderNodeSeparateColor')
+        wrapper._grid_to_location(-1.9, -0.84, dst_node=SeparateColor, ref_node=shader)
+        links.new(SeparateColor.outputs['Red'], CombineColor.inputs['Red'])
+        links.new(SeparateColor.outputs['Green'], CombineColor.inputs['Blue'])
+        links.new(SeparateColor.outputs['Blue'], Invert.inputs['Color'])
+
         normal = nodes.new(type='ShaderNodeTexImage')
         normal.image = PBimg
         normal.image.colorspace_settings.name = 'Non-Color'
         normal.extension = 'CLIP'
-        wrapper._grid_to_location(-1.9, -0.8, dst_node=normal, ref_node=shader)
-        links.new(normal.outputs['Color'], NormalMap.inputs['Color'])
+        wrapper._grid_to_location(-3.0, -1.15, dst_node=normal, ref_node=shader)
+        links.new(normal.outputs['Color'], SeparateColor.inputs['Color'])
+
+        Invert = nodes.new(type='ShaderNodeInvert')
+        Invert.inputs['Fac'].default_value = 1.0
+        wrapper._grid_to_location(-1.9, -0.22, dst_node=Invert, ref_node=shader)
+        links.new(Invert.outputs['Color'], shader.inputs['Roughness'])
+        links.new(normal.outputs['Alpha'], Invert.inputs['Color'])
