@@ -507,11 +507,11 @@ class ExportMDL(bpy.types.Operator, ExportHelper):
         if self.fileformat == 'PKMDL':
             header, body = self.layout.panel("MDL_export_include", default_closed=False)
             header.label( text="Include" )
-            if body:                
-                sublayout = body.column(heading="Limit to")
-                sublayout.prop( self, "use_all" )
-                sublayout.prop( self, "use_selection" )
-                sublayout.prop( self, "use_visible" )
+            if body:
+                body.prop( self, "use_all" )
+                col = body.column(heading="Limit to")
+                col.prop( self, "use_selection" )
+                col.prop( self, "use_visible" )
 
 
 # Add to a menu
