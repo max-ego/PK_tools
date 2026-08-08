@@ -326,8 +326,8 @@ def export_panel_include(layout, operator):
     header, body = layout.panel("PKMPK_export_include", default_closed=False)
     header.label(text="Include")
     if body:
+        body.prop(operator, "use_all")
         col = body.column(heading="Limit to")
-        col.prop(operator, "use_all")
         col.prop(operator, "use_selection")
         col.prop(operator, "use_visible")
 
