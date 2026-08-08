@@ -12,7 +12,7 @@ class Skin:
     offset   : int
 
 
-def CachePKMDL(file, bSwap):
+def CachePKMDL(file, bSwap = False):
     file.seek(0, io.SEEK_SET)
     namelist = []
     for i in range(read_long(file)): namelist.append(readString(file))
@@ -148,7 +148,7 @@ def SetWeights(arm_obj, names, mesh_obj, weights):
 
 def load_mdl(file):
     try:
-        pkmdl = CachePKMDL(file, False) # regular pkmdl
+        pkmdl = CachePKMDL(file) # regular pkmdl
     except:
         pkmdl = CachePKMDL(file, True) # PainKiller.pkmdl
     mtl_cache = {}

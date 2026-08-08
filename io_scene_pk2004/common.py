@@ -150,6 +150,7 @@ def get_path(filepath):
 
 
 def fname(filepath):
+    filepath = bpy.path.abspath(filepath)
     try:
         path/path
         return '../' + get_path(filepath).as_posix().split('.', 1)[0]
