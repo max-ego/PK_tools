@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PLUGIN_NAME: "io_scene_pk2004"
+  RELEASE_NAME: "PK Blender plugins"
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set release metadata
+        id: meta
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          elif [ "${GITHUB_REF#refs/heads/}" = "main" ]; then
+            TAG_NAME="latest"
+          else
+            TAG_NAME="dev"
+          fi
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "archive_name=${PLUGIN_NAME}-${TAG_NAME}.zip" >> $GITHUB_OUTPUT
+
+      - name: Delete existing release and tag
+        if: steps.meta.outputs.tag_name == 'latest' || steps.meta.outputs.tag_name == 'dev'
+        run: |
+          TAG="${{ steps.meta.outputs.tag_name }}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Archive Release
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          path: ${{ env.PLUGIN_NAME }}
+          filename: ${{ steps.meta.outputs.archive_name }}
+          exclusions: '*.git*'
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ format('{0} {1}', env.RELEASE_NAME, steps.meta.outputs.tag_name) }}
+          files: ${{ steps.meta.outputs.archive_name }}
+          target_commitish: ${{ github.sha }}
+          draft: false
+          prerelease: ${{ steps.meta.outputs.tag_name == 'dev' }}
+          make_latest: ${{ steps.meta.outputs.tag_name == 'latest' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
