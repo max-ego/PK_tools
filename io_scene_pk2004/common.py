@@ -914,6 +914,13 @@ def add_texture_to_material(
         links.new(img_wrap.node_image.outputs['Color'], mixer.inputs['Color1'])
         links.new(blendMap.outputs['Color'], mixer.inputs['Color2'])
         links.new(mixer.outputs['Color'], shader.inputs['Base Color'])
+        # mix alpha
+        mixalpha = nodes.new(type='ShaderNodeMixRGB')
+        wrapper._grid_to_location(-1.75, 0.85, dst_node=mixalpha, ref_node=shader)
+        links.new(alphaMap.outputs['Alpha'], mixalpha.inputs['Fac'])
+        links.new(img_wrap.node_image.outputs['Alpha'], mixalpha.inputs['Color1'])
+        links.new(blendMap.outputs['Alpha'], mixalpha.inputs['Color2'])
+        links.new(mixalpha.outputs['Color'], shader.inputs['Alpha'])
     elif mapto == 'DIFFUSE':
         if trans:
             for node in nodes:
